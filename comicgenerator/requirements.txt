@@ -1,0 +1,5 @@
+langchain
+openai
+stability-sdk
+pillow
+langchain_community
