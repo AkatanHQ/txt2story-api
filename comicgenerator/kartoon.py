@@ -1,7 +1,7 @@
 import os
 import json
 from generate_panels import generate_panels
-from generate_image import text_to_image_dalle3
+from text_to_image import text_to_image_dalle3
 from add_text import add_text_to_panel
 from create_strip import create_strip
 

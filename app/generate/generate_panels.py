@@ -84,3 +84,26 @@ def extract_panel_info(text):
             
             panel_info_list.append(panel_info)
     return panel_info_list
+
+
+def manage_panels(scenario=None, panels_path=None, manual_panels=None):
+    """
+    Manages panels by either generating new ones, loading existing ones, or using manually input panels.
+    Returns a list of panels.
+    """
+    panels = []
+
+    if scenario:
+        # Generate panels dynamically based on the scenario
+        panels = generate_panels(scenario)
+    elif panels_path and os.path.exists(panels_path):
+        # Load panels from a JSON file if the path is provided
+        with open(panels_path, 'r') as infile:
+            panels = json.load(infile)
+    elif manual_panels:
+        # Use manually input panels if provided
+        panels = manual_panels
+    else:
+        raise ValueError("You must provide either a scenario, a valid panels_path, or manual_panels.")
+
+    return panels
