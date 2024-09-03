@@ -45,18 +45,6 @@ def generate_comic(scenario=None, file_name=None, style="american comic, colored
         print(f"Error: {e}")
         return None
 
-def get_strip(file_name):
-    try:
-        strip_image_path = f"output/{file_name}/strip.png"
-        if os.path.exists(strip_image_path):
-            return strip_image_path
-        else:
-            raise FileNotFoundError(f"Strip image not found: {strip_image_path}")
-    
-    except Exception as e:
-        print(f"Error: {e}")
-        return None
-
 # Example usage
 scenario = "Characters: Lily is a little girl with curly brown hair and a red dress. Max is a small boy with spiky blonde hair and blue overalls. Lily and Max are best friends, and they go to the playground to play on the swings. Lily falls off the swing and Max helps her up. Lily cries and Max comforts her. Lily is happy again."
 file_name = "Lily_and_Max_at_the_playground"

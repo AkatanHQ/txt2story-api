@@ -1,7 +1,7 @@
 # app/api.py
 
 from flask import Blueprint, request
-from app.generate_comic import generate_comic, get_strip
+from app.generate.generate_comic import generate_comic
 
 api = Blueprint('api', __name__)
 
@@ -9,7 +9,3 @@ api = Blueprint('api', __name__)
 def generate_comic_route():
     data = request.json
     return generate_comic(data)
-
-@api.route('/get_strip/<file_name>', methods=['GET'])
-def get_strip_route(file_name):
-    return get_strip(file_name)
