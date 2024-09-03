@@ -1,5 +1,6 @@
 import os
 import json
+from PIL import Image
 
 class ComicStorageManager:
     def __init__(self, base_directory='output'):
@@ -34,3 +35,18 @@ class ComicStorageManager:
         image_path = os.path.join(comic_directory, image_name)
         image.save(image_path)
         return image_path
+
+    def load_image(self, user_id, comic_name, image_name):
+        comic_directory = self.get_comic_directory(user_id, comic_name)
+        image_path = os.path.join(comic_directory, image_name)
+        if os.path.exists(image_path):
+            return Image.open(image_path)
+        return None
+
+    def load_image_by_panel_number(self, user_id, comic_name, panel_number):
+        comic_directory = self.get_comic_directory(user_id, comic_name)
+        image_name = "panel-"+str(panel_number)+".png"
+        image_path = os.path.join(comic_directory, image_name)
+        if os.path.exists(image_path):
+            return Image.open(image_path)
+        return None

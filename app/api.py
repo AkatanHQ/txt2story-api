@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, send_file
 from app.generate.generate_comic import generate_comic
 from app.storage.storage_manager import ComicStorageManager
 import os
+from io import BytesIO
 
 # Initialize the storage manager once at the module level
 storage_manager = ComicStorageManager()
@@ -55,20 +56,30 @@ def get_comic_route():
 
     return jsonify(response_data), 200
 
+
+
+
 @api.route('/get_comic_image', methods=['GET'])
-def get_comic_image():
+def get_image_route():
     user_id = request.args.get('user_id')
     file_name = request.args.get('file_name')
     panel_number = request.args.get('panel_number')
 
-    if not user_id or not file_name or not panel_number:
-        return jsonify({"error": "user_id, file_name, and panel_number must be provided."}), 400
+    if not user_id:
+        return jsonify({"error": "user_id must be provided."}), 400
+    if not file_name:
+        return jsonify({"error": "file_name must be provided."}), 400
+    if not panel_number:
+        return jsonify({"error": "panel_number must be provided."}), 400
 
-    # Construct the image path using the shared storage manager
-    comic_directory = storage_manager.get_comic_directory(user_id, file_name)
-    image_path = os.path.join(comic_directory, f"panel-{panel_number}.png")
+    # Attempt to load the image using the storage manager
+    image = storage_manager.load_image_by_panel_number(user_id, file_name, panel_number)
 
-    if not os.path.exists(image_path):
+    if image is None:
         return jsonify({"error": "Image not found."}), 404
 
-    return send_file(image_path, mimetype='image/png')
+    # Serve the image file
+    img_io = BytesIO()
+    image.save(img_io, 'PNG')
+    img_io.seek(0)
+    return send_file(img_io, mimetype='image/png')
