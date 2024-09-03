@@ -25,28 +25,21 @@ def generate_comic(scenario=None, file_name=None, style="american comic, colored
                 panels = json.load(infile)
         panels = manage_panels(scenario=scenario, panels_path=panels_path, manual_panels=manual_panels)
 
-        # Save the panel descriptions to a JSON file
-        with open(panels_path, 'w') as outfile:
-            json.dump(panels, outfile)
-
         # Generate images for each panel
-        panel_images = []
         for panel in panels:
             panel_prompt = f"{panel['description']}, cartoon box, {style}"
             print(f"Generating panel {panel['number']} with prompt: {panel_prompt}")
             panel_image = text_to_image_dalle3(panel_prompt)
-            panel_image_with_text = add_text_to_panel(panel["text"], panel_image)
             panel_image_path = f"{output_folder}/panel-{panel['number']}.png"
-            panel_image_with_text.save(panel_image_path)
-            panel_images.append(panel_image_with_text)
+            panel_image.save(panel_image_path)
+            panel['image_path'] = panel_image_path
 
-        # Create the comic strip
-        strip_image = create_strip(panel_images)
-        strip_image_path = f"{output_folder}/strip.png"
-        strip_image.save(strip_image_path)
+        # Save the panel descriptions to a JSON file
+        with open(panels_path, 'w') as outfile:
+            json.dump(panels, outfile)
 
-        print(f"Comic strip created successfully! Saved at {strip_image_path}")
-        return strip_image_path
+        print(f"Images created successfully! Info to be retrieved at {panels_path}")
+        return panels
 
     except Exception as e:
         print(f"Error: {e}")
@@ -68,5 +61,6 @@ def get_strip(file_name):
 scenario = "Characters: Lily is a little girl with curly brown hair and a red dress. Max is a small boy with spiky blonde hair and blue overalls. Lily and Max are best friends, and they go to the playground to play on the swings. Lily falls off the swing and Max helps her up. Lily cries and Max comforts her. Lily is happy again."
 file_name = "Lily_and_Max_at_the_playground"
 style = "american comic, colored"
+
 
 generate_comic(scenario, file_name, style)
