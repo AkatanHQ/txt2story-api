@@ -1,30 +1,32 @@
 import requests
+import json
 
-def generate_comic(scenario, file_name, style):
-    url = "http://localhost:5000/api/generate_comic"
-    headers = {
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "scenario": scenario,
-        "file_name": file_name,
-        "style": style
-    }
-    
-    response = requests.post(url, json=payload, headers=headers)
-    
-    if response.status_code == 200:
-        data = response.json()
-        print(f"Comic strip generated successfully! Strip path: {data['strip_path']}")
-        return data['strip_path']
-    else:
-        print(f"Failed to generate comic. Status code: {response.status_code}, Error: {response.text}")
-        return None
+# Define the URL of the API endpoint
+url = "http://127.0.0.1:5000/api/generate_comic"
 
-# Example usage:
-if __name__ == "__main__":
-    scenario = "Characters: Lily is a little girl with curly brown hair and a red dress. Max is a small boy with spiky blonde hair and blue overalls. Lily and Max are best friends, and they go to the playground to play on the swings. Lily falls off the swing and Max helps her up. Lily cries and Max comforts her. Lily is happy again."
-    file_name = "Lily_and_Max_at_the_playground"
-    style = "american comic, colored"
+# Define the payload for the request
+payload = {
+    "scenario": "Characters: Lily is a little girl with curly brown hair and a red dress. Max is a small boy with spiky blonde hair and blue overalls. Lily and Max are best friends, and they go to the playground to play on the swings. Lily falls off the swing and Max helps her up. Lily cries and Max comforts her. Lily is happy again.",
+    "file_name": "Lily_and_Max_at_the_playground",
+    "style": "american comic, colored"
+}
 
-    generate_comic(scenario, file_name, style)
+# Convert the payload to JSON format
+headers = {
+    'Content-Type': 'application/json'
+}
+
+# Send the POST request to the server
+response = requests.post(url, headers=headers, data=json.dumps(payload))
+
+# Check the response status code
+if response.status_code == 200:
+    # Print the success message and the response data
+    print("Comic generated successfully!")
+    print("Response Data:")
+    print(json.dumps(response.json(), indent=4))
+else:
+    # Print the error message and status code
+    print(f"Failed to generate comic. Status code: {response.status_code}")
+    print("Response Data:")
+    print(json.dumps(response.json(), indent=4))
