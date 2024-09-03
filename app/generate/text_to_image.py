@@ -23,7 +23,7 @@ def text_to_image_dalle3(prompt):
     client = openai.OpenAI()
 
     response = client.images.generate(
-        model="dall-e-3",
+        model="dall-e-2",
         prompt=prompt,
         size="1024x1024",
         quality="standard",

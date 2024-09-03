@@ -45,7 +45,7 @@ Split the scenario in 6 parts:
 """
 
 def generate_panels(scenario):
-    model = ChatOpenAI(model_name='gpt-4')
+    model = ChatOpenAI(model_name='gpt-4o-mini')
 
     human_message_prompt = HumanMessagePromptTemplate.from_template(template)
 
