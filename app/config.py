@@ -8,8 +8,8 @@ load_dotenv()
 
 class Config:
     # Flask configuration
-    DEBUG = False
-    TESTING = False
+    DEBUG = True
+    TESTING = True
     SECRET_KEY = os.getenv('SECRET_KEY', 'your-default-secret-key')
     
     # API Keys from .env

@@ -1,6 +1,8 @@
 **Feedback on Relately**
 
-I just spent some time using your app and wanted to share my initial impressions with you.
+Date tested: 02 sept 2024
+
+I just spent some time using relately and wanted to share my initial impressions with you.
 
 **Areas for Improvement:**
 
