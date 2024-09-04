@@ -45,7 +45,7 @@ Split the scenario in 6 parts:
 """
 
 def generate_panels(scenario):
-    model = ChatOpenAI(model_name='gpt-4o-mini')
+    model = ChatOpenAI(model_name='gpt-4o')
 
     human_message_prompt = HumanMessagePromptTemplate.from_template(template)
 
@@ -82,6 +82,7 @@ def extract_panel_info(text):
             if panel_text is not None:
                 panel_info['text'] = panel_text.group(1)
             
+            print(panel_info)
             panel_info_list.append(panel_info)
     return panel_info_list
 
