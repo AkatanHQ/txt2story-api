@@ -1,5 +1,5 @@
 from app.generate.generate_panels import generate_panels
-from app.generate.text_to_image import text_to_image_dalle3
+from app.generate.text_to_image import *
 from app.generate.add_text import add_text_to_panel
 from app.generate.create_strip import create_strip
 import concurrent.futures
@@ -90,10 +90,14 @@ def generate_image_for_panel(panel, storage_manager, user_id, story_title, style
     """
     panel_prompt = f"{panel['description']}, cartoon box, {style}"
     retries = 0
+
+    # Get the appropriate image generator based on the environment variables
+    image_generator = get_image_generator()
+
     while retries < max_retries:
         try:
             print(f"Generating panel {panel['index']} with prompt: {panel_prompt}")
-            panel_image = text_to_image_dalle3(panel_prompt)
+            panel_image = image_generator(panel_prompt)  # Use the dynamic image generator
             panel_image_name = f"panel-{panel['index']}.png"
             panel_txt2story_img_path = storage_manager.save_image(panel_image, user_id, story_title, panel_image_name)
             panel['txt2story_img_path'] = panel_txt2story_img_path

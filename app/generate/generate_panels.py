@@ -46,16 +46,10 @@ Split the scenario in 6 parts:
 
 def generate_panels(scenario):
     model = ChatOpenAI(model_name='gpt-4o')
-
     human_message_prompt = HumanMessagePromptTemplate.from_template(template)
-
     chat_prompt = ChatPromptTemplate.from_messages([human_message_prompt])
-
     chat_prompt.format_messages(scenario=scenario)
-
     result = model(chat_prompt.format_messages(scenario=scenario))
-
-    print(result.content)
 
     return extract_panel_info(result.content)
 

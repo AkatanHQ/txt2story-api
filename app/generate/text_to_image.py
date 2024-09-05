@@ -9,21 +9,22 @@ import warnings
 from PIL import Image
 from stability_sdk import client
 import stability_sdk.interfaces.gooseai.generation.generation_pb2 as generation
-
 from dotenv import load_dotenv
+from enum import Enum
+
 load_dotenv()
 
-def text_to_image_dalle3(prompt):
+def text_to_image_openai(prompt, model="dall-e-2"):
+    print(f"Using OpenAI with model: {model}")
     # Set up OpenAI API key from environment variable
     api_key = os.getenv("OPENAI_API_KEY")
     openai.api_key = api_key
-
-    print("Using OpenAI")
+    
     # Initialize 
     client = openai.OpenAI()
 
     response = client.images.generate(
-        model="dall-e-2",
+        model=model,
         prompt=prompt,
         size="1024x1024",
         quality="standard",
@@ -31,33 +32,31 @@ def text_to_image_dalle3(prompt):
     )
 
     image_url = response.data[0].url
-    # Fetch the image using the URL
     image_response = requests.get(image_url)
-    
-    # Open the image using PIL
     img = Image.open(BytesIO(image_response.content))
 
     return img
 
 
-def text_to_image_stabilityAI(prompt):
+# Function to generate image using StabilityAI
+def text_to_image_stabilityAI(prompt, model='stable-diffusion-xl-1024-v1-0'):
+    print("Using StabilityAI")
     os.environ['STABILITY_HOST'] = 'grpc.stability.ai:443'
-
+    
     # Configure logging
     logging.basicConfig(filename='generation_log.log', level=logging.INFO, 
                         format='%(asctime)s - %(levelname)s - %(message)s')
 
     seed = random.randint(0, 1000000000)
-
-    # Set up our connection to the API.
+    
+    # Set up connection to Stability API
     stability_api = client.StabilityInference(
-        key=get_config_value('STABILITY_KEY'),
-        verbose=True, # Print debug messages.
-        engine="stable-diffusion-xl-1024-v1-0", # Set the engine to use for generation.
+        key=os.getenv('STABILITY_KEY'),
+        verbose=True, 
+        engine=model, 
     )
-
-
-    # Set up our initial generation parameters.
+    
+    # Generate image
     answers = stability_api.generate(
         prompt=prompt,
         seed=seed,
@@ -67,21 +66,27 @@ def text_to_image_stabilityAI(prompt):
         height=1024,
         sampler=generation.SAMPLER_K_DPMPP_2M
     )
-
-    image_generated = False  # Flag to check if image was generated
-
+    
     for resp in answers:
         for artifact in resp.artifacts:
             if artifact.finish_reason == generation.FILTER:
-                warnings.warn(
-                    "Your request activated the API's safety filters and could not be processed."
-                    "Please modify the prompt and try again."
-                )
+                warnings.warn("Safety filter activated. Modify the prompt.")
                 logging.warning("Prompt activated safety filter: %s", prompt)
             if artifact.type == generation.ARTIFACT_IMAGE:
                 img = Image.open(io.BytesIO(artifact.binary))
-                image_generated = True
                 return img
 
-    if not image_generated:
-        logging.error("No image was generated for prompt: %s", prompt)
+    logging.error("No image generated for prompt: %s", prompt)
+    return None
+
+# Factory function to choose the model dynamically based on environment variables
+def get_image_generator():
+    model_provider = os.getenv("MODEL_PROVIDER", "openai").lower()
+    model_name = os.getenv("MODEL_NAME", "dall-e-2")
+
+    if model_provider == "openai":
+        return lambda prompt: text_to_image_openai(prompt, model_name)
+    elif model_provider == "stabilityai":
+        return lambda prompt: text_to_image_stabilityAI(prompt, model_name) 
+    else:
+        raise ValueError(f"Unsupported model provider: {model_provider}")
