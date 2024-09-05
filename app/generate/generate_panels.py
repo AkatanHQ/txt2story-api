@@ -67,10 +67,10 @@ def extract_panel_info(text):
         if block.strip() != '':
             panel_info = {}
             
-            # Extracting panel number
-            panel_number = re.search(r'\d+', block)
-            if panel_number is not None:
-                panel_info['number'] = panel_number.group()
+            # Extracting panel index
+            panel_index = re.search(r'\d+', block)
+            if panel_index is not None:
+                panel_info['index'] = panel_index.group()
             
             # Extracting panel description
             panel_description = re.search(r'description: (.+)', block)
@@ -85,26 +85,3 @@ def extract_panel_info(text):
             print(panel_info)
             panel_info_list.append(panel_info)
     return panel_info_list
-
-
-def manage_panels(scenario=None, panels_path=None, manual_panels=None):
-    """
-    Manages panels by either generating new ones, loading existing ones, or using manually input panels.
-    Returns a list of panels.
-    """
-    panels = []
-
-    if scenario:
-        # Generate panels dynamically based on the scenario
-        panels = generate_panels(scenario)
-    elif panels_path and os.path.exists(panels_path):
-        # Load panels from a JSON file if the path is provided
-        with open(panels_path, 'r') as infile:
-            panels = json.load(infile)
-    elif manual_panels:
-        # Use manually input panels if provided
-        panels = manual_panels
-    else:
-        raise ValueError("You must provide either a scenario, a valid panels_path, or manual_panels.")
-
-    return panels

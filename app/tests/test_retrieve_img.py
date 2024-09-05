@@ -1,12 +1,12 @@
 import requests
 
-def get_comic_image(base_url, user_id, file_name, panel_number, save_path):
+def get_comic_image(base_url, user_id, story_title, panel_index, save_path):
     # Construct the URL with query parameters
     url = f"{base_url}/get_comic_image"
     params = {
         'user_id': user_id,
-        'file_name': file_name,
-        'panel_number': panel_number
+        'story_title': story_title,
+        'panel_index': panel_index
     }
     
     # Make the GET request to retrieve the image
@@ -26,9 +26,9 @@ if __name__ == "__main__":
 
     # Specify the parameters
     user_id = "user_test1"
-    file_name = "Generated_Story_1"
-    panel_number = 1
+    story_title = "Generated_Story_1"
+    panel_index = 1
     save_path = "panel1.png"  # Path where you want to save the image
 
     # Call the function to retrieve and save the image
-    get_comic_image(base_url, user_id, file_name, panel_number, save_path)
+    get_comic_image(base_url, user_id, story_title, panel_index, save_path)

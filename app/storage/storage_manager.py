@@ -32,21 +32,21 @@ class ComicStorageManager:
 
     def save_image(self, image, user_id, comic_name, image_name):
         comic_directory = self.create_comic_directory(user_id, comic_name)
-        image_path = os.path.join(comic_directory, image_name)
-        image.save(image_path)
-        return image_path
+        txt2story_img_path = os.path.join(comic_directory, image_name)
+        image.save(txt2story_img_path)
+        return txt2story_img_path
 
     def load_image(self, user_id, comic_name, image_name):
         comic_directory = self.get_comic_directory(user_id, comic_name)
-        image_path = os.path.join(comic_directory, image_name)
-        if os.path.exists(image_path):
-            return Image.open(image_path)
+        txt2story_img_path = os.path.join(comic_directory, image_name)
+        if os.path.exists(txt2story_img_path):
+            return Image.open(txt2story_img_path)
         return None
 
-    def load_image_by_panel_number(self, user_id, comic_name, panel_number):
+    def load_image_by_panel_index(self, user_id, comic_name, panel_index):
         comic_directory = self.get_comic_directory(user_id, comic_name)
-        image_name = "panel-"+str(panel_number)+".png"
-        image_path = os.path.join(comic_directory, image_name)
-        if os.path.exists(image_path):
-            return Image.open(image_path)
+        image_name = "panel-"+str(panel_index)+".png"
+        txt2story_img_path = os.path.join(comic_directory, image_name)
+        if os.path.exists(txt2story_img_path):
+            return Image.open(txt2story_img_path)
         return None

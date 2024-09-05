@@ -10,7 +10,6 @@ class Config:
     # Flask configuration
     DEBUG = True
     TESTING = True
-    SECRET_KEY = os.getenv('SECRET_KEY', 'your-default-secret-key')
     
     # API Keys from .env
     STABILITY_KEY = os.getenv('STABILITY_KEY')
