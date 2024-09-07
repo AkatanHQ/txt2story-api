@@ -19,16 +19,9 @@ def generate_comic(storage_manager, scenario=None, user_id=None, story_title=Non
         if not user_id:
             raise ValueError("user_id must be provided.")
         
-        # Load panels from existing JSON file if it exists or generate new ones
         panels = load_or_generate_panels(storage_manager, scenario, user_id, story_title, manual_panels)
-
-        # Save the panel descriptions to a JSON file
         storage_manager.save_json(panels, user_id, story_title, panels_file_name)
-
-        # Generate images for each panel
         panels = generate_images_for_panels(panels, storage_manager, user_id, story_title, style)
-
-        # Save the panel descriptions (with images) to a JSON file
         storage_manager.save_json(panels, user_id, story_title, panels_file_name)
 
         print(f"Story generated successfully! Files saved to {storage_manager.get_comic_directory(user_id, story_title)}")
