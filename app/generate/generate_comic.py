@@ -6,6 +6,8 @@ import concurrent.futures
 import time
 import signal
 import sys
+from flask import current_app
+
 
 def generate_comic(storage_manager, scenario=None, user_id=None, story_title=None, style="american comic, colored", manual_panels=None):
     try:
@@ -96,7 +98,7 @@ def generate_image_for_panel(panel, storage_manager, user_id, story_title, style
 
     while retries < max_retries:
         try:
-            print(f"Generating panel {panel['index']} with prompt: {panel_prompt}")
+            print(f"Generating panel {panel['index']} with prompt: {panel_prompt} \n")
             panel_image = image_generator(panel_prompt)  # Use the dynamic image generator
             panel_image_name = f"panel-{panel['index']}.png"
             panel_txt2story_img_path = storage_manager.save_image(panel_image, user_id, story_title, panel_image_name)

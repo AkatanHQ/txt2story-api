@@ -76,6 +76,5 @@ def extract_panel_info(text):
             if panel_text is not None:
                 panel_info['text'] = panel_text.group(1)
             
-            print(panel_info)
             panel_info_list.append(panel_info)
     return panel_info_list

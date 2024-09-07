@@ -1,0 +1,3 @@
+environment:
+  model_provider: "openai"
+  model_name: "dall-e-3"
