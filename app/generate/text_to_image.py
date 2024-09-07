@@ -9,9 +9,13 @@ from stability_sdk import client
 import stability_sdk.interfaces.gooseai.generation.generation_pb2 as generation
 from app.utils.config_util import load_config, get_env_variable
 
+# Load environment variables from the centralized config file
+config = load_config()
+
 # Function to generate image using OpenAI
 def text_to_image_openai(prompt, model="dall-e-2"):
-    # Set up OpenAI API key from environment variable using config_util
+    model_resolution = config['environment'].get('model_resolution', '1024x1024').lower().strip()
+
     api_key = get_env_variable("OPENAI_API_KEY")
     openai.api_key = api_key
     
@@ -22,7 +26,7 @@ def text_to_image_openai(prompt, model="dall-e-2"):
     response = client.images.generate(
         model=model,
         prompt=prompt,
-        size="1024x1024",
+        size=model_resolution,
         n=1,
     )
 
@@ -84,8 +88,7 @@ def text_to_image_flux(prompt, model='black-forest-labs/FLUX.1-schnell'):
 
 # Function to select the image generation method based on config
 def get_image_generator():
-    # Load environment variables from the centralized config file
-    config = load_config()
+
 
     # Get values from the config
     model_provider = config['environment'].get('model_provider', 'openai').lower().strip()
