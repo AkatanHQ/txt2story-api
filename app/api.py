@@ -1,3 +1,4 @@
+# api.py
 from flask import Blueprint, request, jsonify, send_file
 from app.generate.generate_comic import generate_comic
 from app.storage.storage_manager import ComicStorageManager
@@ -12,6 +13,7 @@ api = Blueprint('api', __name__)
 @api.route('/generate_comic', methods=['POST'])
 def generate_comic_route():
     data = request.json
+    print("???")
 
     user_id = data.get('user_id')
     scenario = data.get('scenario')
@@ -55,8 +57,6 @@ def get_comic_route():
     }
 
     return jsonify(response_data), 200
-
-
 
 
 @api.route('/get_comic_image', methods=['GET'])

@@ -10,7 +10,7 @@ from langchain.prompts.chat import (
 template = """
 You are a cartoon creator.
 
-You will be given a short scenario, you must split it in 6 parts.
+You will be given a short scenario, you must split it in {num_panels} parts.
 Each part will be a different cartoon panel.
 For each cartoon panel, you will write a description of it with:
  - the characters in the panel, they must be described precisely each time
@@ -40,16 +40,16 @@ Adrien: Let's create a new product with it.
 Short Scenario:
 {scenario}
 
-Split the scenario in 6 parts:
+Split the scenario in {num_panels} parts:
 "
 """
 
-def generate_panels(scenario):
+def generate_panels(scenario, num_panels):
     model = ChatOpenAI(model_name='gpt-4o')
     human_message_prompt = HumanMessagePromptTemplate.from_template(template)
     chat_prompt = ChatPromptTemplate.from_messages([human_message_prompt])
-    chat_prompt.format_messages(scenario=scenario)
-    result = model(chat_prompt.format_messages(scenario=scenario))
+    chat_prompt.format_messages(scenario=scenario,num_panels=num_panels)
+    result = model(chat_prompt.format_messages(scenario=scenario,num_panels=num_panels))
 
     return extract_panel_info(result.content)
 

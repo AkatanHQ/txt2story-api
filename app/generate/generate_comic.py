@@ -11,7 +11,7 @@ from flask import current_app
 
 def generate_comic(storage_manager, scenario=None, user_id=None, story_title=None, style="american comic, colored", manual_panels=None):
     try:
-        panels_file_name = 'panels.json'
+        panels_story_title = 'panels.json'
 
         # Validate input
         if not story_title:
@@ -20,9 +20,9 @@ def generate_comic(storage_manager, scenario=None, user_id=None, story_title=Non
             raise ValueError("user_id must be provided.")
         
         panels = load_or_generate_panels(storage_manager, scenario, user_id, story_title, manual_panels)
-        storage_manager.save_json(panels, user_id, story_title, panels_file_name)
+        storage_manager.save_json(panels, user_id, story_title, panels_story_title)
         panels = generate_images_for_panels(panels, storage_manager, user_id, story_title, style)
-        storage_manager.save_json(panels, user_id, story_title, panels_file_name)
+        storage_manager.save_json(panels, user_id, story_title, panels_story_title)
 
         print(f"Story generated successfully! Files saved to {storage_manager.get_comic_directory(user_id, story_title)}")
         return panels
@@ -40,14 +40,15 @@ def load_or_generate_panels(storage_manager, scenario, user_id, story_title, man
     Loads panels from storage or generates them based on the provided scenario or manual input.
     Returns a list of panels.
     """
-    panels_file_name = 'panels.json'
-    panels = storage_manager.load_json(story_title, user_id, panels_file_name) or []
+    panels_story_title = 'panels.json'
+    panels = storage_manager.load_json(story_title, user_id, panels_story_title) or []
 
     if not panels:
         if manual_panels:
             panels = manual_panels
         elif scenario:
-            panels = generate_panels(scenario)
+            num_panels = 2
+            panels = generate_panels(scenario, num_panels)
         else:
             raise ValueError("You must provide either a scenario or manual_panels.")
     

@@ -6,7 +6,7 @@ url = "http://127.0.0.1:5000/api/generate_comic"
 
 # Define the payload for the request
 payload = {
-    "user_id": "user_129",  # Example user ID
+    "user_id": "user_130",  # Example user ID
     "scenario": "Characters: John is an adventurous boy with a blue cap and a green backpack. Sarah is a curious girl with long black hair and a yellow jacket. John and Sarah explore a mysterious forest where they discover an ancient tree with glowing leaves. Suddenly, the tree opens up and reveals a hidden pathway leading to an underground cave filled with sparkling crystals.",
     "story_title": "John_and_Sarah_in_the_Forest",
     "style": "american comic, colored",

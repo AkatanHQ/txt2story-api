@@ -1,6 +1,7 @@
 myenv
 .env
 output
+static
 
 
 # Byte-compiled / optimized / DLL files
