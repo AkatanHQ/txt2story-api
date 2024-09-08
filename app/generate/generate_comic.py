@@ -47,7 +47,9 @@ def load_or_generate_panels(storage_manager, scenario, user_id, story_title, man
         if manual_panels:
             panels = manual_panels
         elif scenario:
-            num_panels = 2
+            # TODO: make num_panels it a variable that can be controlled by users
+            # TODO: make num_panels secure (max x amount of nums, etc.)
+            num_panels = 2 
             panels = generate_panels(scenario, num_panels)
         else:
             raise ValueError("You must provide either a scenario or manual_panels.")
