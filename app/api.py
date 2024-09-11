@@ -22,9 +22,14 @@ def generate_comic_route():
     manual_panels = data.get('manual_panels')
 
     if not user_id:
-        return jsonify({"error": "user_id must be provided."}), 400
+        error_response = jsonify({"error": "user_id must be provided."}), 400
+        print(error_response[0].get_json()) 
+        return error_response
     if not story_title:
-        return jsonify({"error": "story_title must be provided."}), 400
+        error_response = jsonify({"error": "story_title must be provided."}), 400
+        print(error_response[0].get_json())
+        return error_response
+
 
     # Pass the storage manager to the generate_comic function
     panels = generate_comic(storage_manager, scenario=scenario, user_id=user_id, story_title=story_title, style=style, manual_panels=manual_panels)
