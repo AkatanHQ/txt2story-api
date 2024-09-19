@@ -17,11 +17,25 @@ The text should not be more than 2 small sentences.
 Each sentence should start by the character name
 
 Example input:
-Characters: Adrien is a guy with blond hair wearing glasses. Vincent is a guy with black hair wearing a hat.
-Adrien and vincent want to start a new product, and they create it in one night before presenting it to the board.
-
-
-
+scenario: {{
+    description: 'Adrien and Vincent want to start a new product, and they create it in one night before presenting it to the board.',
+    characters: [
+        {{
+            id: 1,
+            name: 'Adrien',
+            appearance: 'A guy with blond hair wearing glasses.',
+            description: '',
+            picture: null
+        }},
+        {{
+            id: 2,
+            name: 'Vincent',
+            appearance: 'A guy with black hair wearing a hat.',
+            description: '',
+            picture: null
+        }}
+    ]
+}},
 Example output:
 
 # Panel 1
@@ -42,7 +56,9 @@ Split the scenario in {num_panels} parts:
 
 def generate_panels(scenario, num_panels):
     # Format the prompt
+    print('test')
     formatted_prompt = template.format(scenario=scenario, num_panels=num_panels)
+    print('test2')
     client = OpenAI()
 
     completion = client.chat.completions.create(
