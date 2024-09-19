@@ -1,11 +1,5 @@
-
 import re
-
-from langchain.chat_models import ChatOpenAI
-from langchain.prompts.chat import (
-    ChatPromptTemplate,
-    HumanMessagePromptTemplate,
-)
+from openai import OpenAI
 
 template = """
 You are a cartoon creator.
@@ -26,6 +20,8 @@ Example input:
 Characters: Adrien is a guy with blond hair wearing glasses. Vincent is a guy with black hair wearing a hat.
 Adrien and vincent want to start a new product, and they create it in one night before presenting it to the board.
 
+
+
 Example output:
 
 # Panel 1
@@ -45,13 +41,24 @@ Split the scenario in {num_panels} parts:
 """
 
 def generate_panels(scenario, num_panels):
-    model = ChatOpenAI(model_name='gpt-4o')
-    human_message_prompt = HumanMessagePromptTemplate.from_template(template)
-    chat_prompt = ChatPromptTemplate.from_messages([human_message_prompt])
-    chat_prompt.format_messages(scenario=scenario,num_panels=num_panels)
-    result = model(chat_prompt.format_messages(scenario=scenario,num_panels=num_panels))
+    # Format the prompt
+    formatted_prompt = template.format(scenario=scenario, num_panels=num_panels)
+    client = OpenAI()
 
-    return extract_panel_info(result.content)
+    completion = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": formatted_prompt},
+        ]
+    )
+
+    # Extract the content from the API response
+    result = completion.choices[0].message.content
+    print(result)
+    
+    # Parse and return the panel information
+    return extract_panel_info(result)
 
 def extract_panel_info(text):
     panel_info_list = []
