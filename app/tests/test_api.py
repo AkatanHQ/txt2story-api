@@ -4,7 +4,41 @@ import json
 # Define the URL of the API endpoint
 url = "http://127.0.0.1:5000/api/generate_comic"
 
-scenario = {
+
+
+# scenario = 'John, An adventurous boy with a blue cap and a green backpack, Explores a mysterious forest where they discover an ancient tree with glowing leaves. Suddenly, the tree opens up and reveals a hidden pathway leading to an underground cave filled with sparkling crystals.'
+
+# Define the payload for the request
+# Define the payload for the request
+# payload = {
+#     "user_id": "user_20240928_1",  # Example user ID
+#     "scenario": {
+# 		'description':
+# 			'Explore a mysterious forest where they discover an ancient tree with glowing leaves. Suddenly, the tree opens up and reveals a hidden pathway leading to an underground cave filled with sparkling crystals.',
+# 		'characters': [
+# 			{
+# 				'id': 1,
+# 				'name': 'John',
+# 				'appearance': 'An adventurous boy with a blue cap and a green backpack',
+# 				'description': '',
+# 				'picture': None
+# 			},
+# 			{
+# 				'id': 2,
+# 				'name': 'Sarah',
+# 				'appearance': 'A curious girl with long black hair and a yellow jacket',
+# 				'description': '',
+# 				'picture': None
+# 			}
+# 		]
+# 	},
+#     "story_title": "John_and_Sarah_in_the_Forest",
+#     "style": "american comic, colored",
+# }
+
+payload = {
+	"userId": "user_20240928_2",
+	"scenario": {
 		'description':
 			'Explore a mysterious forest where they discover an ancient tree with glowing leaves. Suddenly, the tree opens up and reveals a hidden pathway leading to an underground cave filled with sparkling crystals.',
 		'characters': [
@@ -23,17 +57,11 @@ scenario = {
 				'picture': None
 			}
 		]
-	}
-
-# scenario = 'John, An adventurous boy with a blue cap and a green backpack, Explores a mysterious forest where they discover an ancient tree with glowing leaves. Suddenly, the tree opens up and reveals a hidden pathway leading to an underground cave filled with sparkling crystals.'
-
-# Define the payload for the request
-# Define the payload for the request
-payload = {
-    "user_id": "user_20240928_1",  # Example user ID
-    "scenario": scenario,
-    "story_title": "John_and_Sarah_in_the_Forest",
-    "style": "american comic, colored",
+	},
+    'selectedStyle': 'american comic, colored',
+    'storyTitle': 'Dutch_story',
+    'storyLength': 'short',
+    'selectedLanguage': 'dutch'
 }
 
 # Convert the payload to JSON format
