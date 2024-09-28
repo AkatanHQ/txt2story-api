@@ -30,7 +30,7 @@ scenario = {
 # Define the payload for the request
 # Define the payload for the request
 payload = {
-    "user_id": "user_130",  # Example user ID
+    "user_id": "user_20240928_1",  # Example user ID
     "scenario": scenario,
     "story_title": "John_and_Sarah_in_the_Forest",
     "style": "american comic, colored",
