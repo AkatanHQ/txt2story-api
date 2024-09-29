@@ -1,7 +1,8 @@
 # api.py
 from flask import Blueprint, request, jsonify, send_file
-from app.generate.generate_comic import generate_comic
+from app.generate.comic_generator import ComicGenerator  # Updated to use ComicGenerator
 from app.storage.storage_manager import ComicStorageManager
+from app.utils.enums import StoryLength
 import os
 from io import BytesIO
 
@@ -11,43 +12,60 @@ storage_manager = ComicStorageManager()
 api = Blueprint('api', __name__)
 
 @api.route('/generate_comic', methods=['POST'])
-def generate_comic_route():
+@api.route('/generate_comic/<img_model>', methods=['POST'])
+def generate_comic_route(img_model='dall-e-2'):
     data = request.json
-    print("???")
 
-    user_id = data.get('user_id')
+    user_id = data.get('userId')
     scenario = data.get('scenario')
-    story_title = data.get('story_title')
-    style = data.get('style', 'american comic, colored')
-    manual_panels = data.get('manual_panels')
+    story_title = data.get('storyTitle')
+    style = data.get('selectedStyle', 'american comic, colored')
+    language = data.get('selectedLanguage', 'english')
+    story_length = data.get('storyLength', 'short').upper()
 
+    # Determine the number of panels based on story length
+    try:
+        num_panels = StoryLength[story_length].value
+    except KeyError:
+        return jsonify({"error": "Invalid storyLength provided. Choose 'short', 'medium', or 'long'."}), 400
+
+    # Validate required fields
     if not user_id:
-        error_response = jsonify({"error": "user_id must be provided."}), 400
-        print(error_response[0].get_json()) 
-        return error_response
+        return jsonify({"error": "userId must be provided."}), 400
     if not story_title:
-        error_response = jsonify({"error": "story_title must be provided."}), 400
-        print(error_response[0].get_json())
-        return error_response
+        return jsonify({"error": "storyTitle must be provided."}), 400
 
+    # Instantiate ComicGenerator with the storage manager and selected parameters
+    comic_generator = ComicGenerator(
+        storage_manager=storage_manager
+    )
 
-    # Pass the storage manager to the generate_comic function
-    panels = generate_comic(storage_manager, scenario=scenario, user_id=user_id, story_title=story_title, style=style, manual_panels=manual_panels)
+    # Generate the comic
+    panels = comic_generator.generate_comic(
+        scenario=scenario,
+        user_id=user_id,
+        img_model=img_model,
+        style=style,
+        language=language,
+        story_title=story_title,
+        num_panels=num_panels
+    )
     
     if panels is None:
         return jsonify({"error": "Comic generation failed."}), 500
 
     return jsonify({"message": "Comic generated successfully.", "panels": panels}), 200
 
+
 @api.route('/get_comic', methods=['GET'])
 def get_comic_route():
-    user_id = request.args.get('user_id')
-    story_title = request.args.get('story_title')
+    user_id = request.args.get('userId')
+    story_title = request.args.get('storyTitle')
 
     if not user_id:
-        return jsonify({"error": "user_id must be provided."}), 400
+        return jsonify({"error": "userId must be provided."}), 400
     if not story_title:
-        return jsonify({"error": "story_title must be provided."}), 400
+        return jsonify({"error": "storyTitle must be provided."}), 400
 
     # Load the panels JSON using the shared storage manager
     panels = storage_manager.load_json(user_id=user_id, comic_name=story_title, json_name='panels.json')
@@ -63,19 +81,18 @@ def get_comic_route():
 
     return jsonify(response_data), 200
 
-
 @api.route('/get_comic_image', methods=['GET'])
 def get_image_route():
-    user_id = request.args.get('user_id')
-    story_title = request.args.get('story_title')
-    panel_index = request.args.get('panel_index')
+    user_id = request.args.get('userId')
+    story_title = request.args.get('storyTitle')
+    panel_index = request.args.get('panelIndex')
 
     if not user_id:
-        return jsonify({"error": "user_id must be provided."}), 400
+        return jsonify({"error": "userId must be provided."}), 400
     if not story_title:
-        return jsonify({"error": "story_title must be provided."}), 400
-    if not panel_index:
-        return jsonify({"error": "panel_index must be provided."}), 400
+        return jsonify({"error": "storyTitle must be provided."}), 400
+    if panel_index is None:
+        return jsonify({"error": "panelIndex must be provided."}), 400
 
     # Attempt to load the image using the storage manager
     image = storage_manager.load_image_by_panel_index(user_id, story_title, panel_index)

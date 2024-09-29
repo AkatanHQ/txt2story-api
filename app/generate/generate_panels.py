@@ -15,6 +15,7 @@ You can not use the same description twice.
 You will also write the text of the panel.
 The text should not be more than 2 small sentences.
 Each sentence should start by the character name
+Language should be in {language}.
 
 Example input:
 scenario: {{
@@ -34,9 +35,9 @@ scenario: {{
             description: '',
             picture: null
         }}
-    ]
+    ],
 }},
-Example output:
+Example output in English:
 
 # Panel 1
 description: 2 guys, a blond hair guy wearing glasses, a dark hair guy wearing hat, sitting at the office, with computers
@@ -54,10 +55,10 @@ Split the scenario in {num_panels} parts:
 "
 """
 
-def generate_panels(scenario, num_panels):
+def generate_panels(scenario, num_panels, language="english"):
     # Format the prompt
     print('test')
-    formatted_prompt = template.format(scenario=scenario, num_panels=num_panels)
+    formatted_prompt = template.format(scenario=scenario, num_panels=num_panels, language=language)
     print('test2')
     client = OpenAI()
 
