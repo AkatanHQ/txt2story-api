@@ -7,11 +7,12 @@ You are a cartoon creator.
 You will be given a short scenario, you must split it in {num_panels} parts.
 Each part will be a different cartoon panel.
 For each cartoon panel, you will write a description of it with:
- - the characters in the panel, they must be described precisely each time
- - the background of the panel
+ - Precisely describe each character, using detailed physical features (e.g., height, skin color, hair type and color, eye color), clothing, posture, and expressions (e.g., smiling, laughing).
+ - Include detailed descriptions of the background environment, such as trees, the sky, other people in the background, and any other relevant surroundings.
 The description should be only word or group of word delimited by a comma, no sentence.
 Always use the characters descriptions instead of their name in the cartoon panel description.
-You can not use the same description twice.
+Repeat the character description in each panel.
+Describe the environment and what they do at the end.
 You will also write the text of the panel.
 The text should not be more than 2 small sentences.
 Each sentence should start by the character name
@@ -31,7 +32,7 @@ scenario: {{
         {{
             id: 2,
             name: 'Vincent',
-            appearance: 'A guy with black hair wearing a hat.',
+            appearance: 'A black guy with black hair and a beard',
             description: '',
             picture: null
         }}
@@ -40,7 +41,7 @@ scenario: {{
 Example output in English:
 
 # Panel 1
-description: 2 guys, a blond hair guy wearing glasses, a dark hair guy wearing hat, sitting at the office, with computers
+description: "A tall man with blonde hair and blue eyes. His hair is medium length, slightly wavy, and falls naturally around his face, framing his forehead and temples. He wears thin, rectangular black-framed glasses that sit comfortably on his nose, adding a scholarly yet approachable touch to his look. His bright blue eyes, accentuated by the glasses, convey a friendly yet confident expression. He has a well-built, athletic physique, standing at around 6'2" with broad shoulders and toned muscles. His posture is relaxed but upright, suggesting both ease and confidence. He is dressed casually in a light blue button-down shirt with the sleeves rolled up to his elbows, showing his forearms, and well-fitted dark jeans that complement his athletic build." and ""A african-american black tall man with a well-built, athletic physique, standing at around 6'2". He has short black hair that is neatly styled, with a trimmed beard that frames his face. His eyes are dark brown, exuding warmth and charisma. He has a confident smile that gives him a friendly, approachable appearance. His posture is relaxed yet confident, showing his easy-going nature. He is dressed casually in a fitted black t-shirt and dark jeans, with a modern, stylish look that complements his personality.". They are sitting at the office, with computers.
 text:
 ```
 Vincent: I think Generative AI are the future of the company.
@@ -57,9 +58,7 @@ Split the scenario in {num_panels} parts:
 
 def generate_panels(scenario, num_panels, language="english"):
     # Format the prompt
-    print('test')
     formatted_prompt = template.format(scenario=scenario, num_panels=num_panels, language=language)
-    print('test2')
     client = OpenAI()
 
     completion = client.chat.completions.create(

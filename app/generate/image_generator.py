@@ -26,6 +26,7 @@ class ImageGenerator:
         response = client.images.generate(
             model=self.img_model,
             prompt=prompt,
+            quality="standard",
             size=self.model_resolution,
             n=1,
         )

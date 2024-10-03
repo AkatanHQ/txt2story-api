@@ -10,7 +10,7 @@ class ComicGenerator:
     def __init__(self, storage_manager):
         self.storage_manager = storage_manager
 
-    def generate_comic(self, scenario=None, user_id=None, story_title=None, img_model='dall-e-2', style="american comic, colored", language='english', num_panels=6):
+    def generate_comic(self, scenario=None, user_id=None, story_title=None, img_model='dall-e-2', selectedStyle="tintinstyle", language='english', num_panels=6):
         try:
             # Validate input
             if not story_title:
@@ -26,7 +26,7 @@ class ComicGenerator:
             self.storage_manager.save_json(panels, user_id, story_title, 'panels.json')
 
             # Generate images for each panel and update the panels data
-            panels = self.generate_images_for_panels(panels, user_id, story_title, style)
+            panels = self.generate_images_for_panels(panels, user_id, story_title, selectedStyle)
             self.storage_manager.save_json(panels, user_id, story_title, 'panels.json')
 
             print(f"Story generated successfully! Files saved to {self.storage_manager.get_comic_directory(user_id, story_title)}")
@@ -54,7 +54,7 @@ class ComicGenerator:
         
         return panels
 
-    def generate_images_for_panels(self, panels, user_id, story_title, style):
+    def generate_images_for_panels(self, panels, user_id, story_title, selectedStyle):
         """
         Generates images for each panel concurrently using the given style and saves them.
         Includes retry logic to handle rate limit errors.
@@ -64,7 +64,7 @@ class ComicGenerator:
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 # Submit tasks to generate images for each panel concurrently
                 futures = [
-                    executor.submit(self.generate_image_for_panel, panel, user_id, story_title, style)
+                    executor.submit(self.generate_image_for_panel, panel, user_id, story_title, selectedStyle)
                     for panel in panels
                 ]
                 
@@ -77,12 +77,12 @@ class ComicGenerator:
             executor.shutdown(wait=False)  # Attempt to shut down threads immediately
             raise  # Re-raise the KeyboardInterrupt to handle it higher up the chain
 
-    def generate_image_for_panel(self, panel, user_id, story_title, style):
+    def generate_image_for_panel(self, panel, user_id, story_title, selectedStyle):
         """
         Generates and saves the image for a single panel with retry logic to handle rate limits.
         Returns the updated panel with the image path.
         """
-        panel_prompt = f"{panel['description']}, cartoon box, {style}"
+        panel_prompt = f"{panel['description']}. {selectedStyle}"
         max_retries=3
         retries = 0
 

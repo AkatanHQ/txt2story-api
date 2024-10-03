@@ -2,66 +2,35 @@ import requests
 import json
 
 # Define the URL of the API endpoint
-url = "http://127.0.0.1:5000/api/generate_comic"
-
-
-
-# scenario = 'John, An adventurous boy with a blue cap and a green backpack, Explores a mysterious forest where they discover an ancient tree with glowing leaves. Suddenly, the tree opens up and reveals a hidden pathway leading to an underground cave filled with sparkling crystals.'
-
-# Define the payload for the request
-# Define the payload for the request
-# payload = {
-#     "user_id": "user_20240928_1",  # Example user ID
-#     "scenario": {
-# 		'description':
-# 			'Explore a mysterious forest where they discover an ancient tree with glowing leaves. Suddenly, the tree opens up and reveals a hidden pathway leading to an underground cave filled with sparkling crystals.',
-# 		'characters': [
-# 			{
-# 				'id': 1,
-# 				'name': 'John',
-# 				'appearance': 'An adventurous boy with a blue cap and a green backpack',
-# 				'description': '',
-# 				'picture': None
-# 			},
-# 			{
-# 				'id': 2,
-# 				'name': 'Sarah',
-# 				'appearance': 'A curious girl with long black hair and a yellow jacket',
-# 				'description': '',
-# 				'picture': None
-# 			}
-# 		]
-# 	},
-#     "story_title": "John_and_Sarah_in_the_Forest",
-#     "style": "american comic, colored",
-# }
+url = "http://127.0.0.1:5000/api/generate_comic/dall-e-3"
+style_description = "Illustration in the style inspired by classic European comic books, specifically reminiscent of Hergé's Tintin. Use clean and consistent black outlines for each character and object, with moderate and uniformly thick lines that emphasize important features without being overpowering. Avoid sketchiness or textured lines, focusing on a polished look. Apply bright and vibrant colors, using primarily reds, blues, greens, and yellows. Color areas should be filled flatly, with no gradients or airbrushed effects. Shading should be minimal and flat, with only one or two tone variations to suggest depth. Character designs should feature expressive yet simplified facial features, ensuring clarity without excess detail. Maintain realistic body proportions—characters should not be exaggerated or caricatured. Use minimal texture, ensuring skin and clothing are uniformly smooth without any visible texture. The overall style should be friendly, visually appealing, and in line with classic comic book aesthetics."
 
 payload = {
-	"userId": "user_20240928_2",
+	"userId": "user2_testingDetailedDescription",
 	"scenario": {
 		'description':
-			'Explore a mysterious forest where they discover an ancient tree with glowing leaves. Suddenly, the tree opens up and reveals a hidden pathway leading to an underground cave filled with sparkling crystals.',
+			'They are creating a project together. And it will be a success. You can fill in the rest.',
 		'characters': [
 			{
 				'id': 1,
-				'name': 'John',
-				'appearance': 'An adventurous boy with a blue cap and a green backpack',
+				'name': 'Maria',
+				'appearance': 'A short girl, 1m50 tall, with brown curls',
 				'description': '',
 				'picture': None
 			},
 			{
 				'id': 2,
-				'name': 'Sarah',
-				'appearance': 'A curious girl with long black hair and a yellow jacket',
+				'name': 'Draco',
+				'appearance': 'A guy with a beard and glasses. Nerdy look.',
 				'description': '',
 				'picture': None
 			}
 		]
 	},
-    'selectedStyle': 'american comic, colored',
-    'storyTitle': 'Dutch_story',
+    'selectedStyle': style_description,
+    'storyTitle': 'orange_girl_and_boy',
     'storyLength': 'short',
-    'selectedLanguage': 'dutch'
+    'selectedLanguage': 'english'
 }
 
 # Convert the payload to JSON format

@@ -19,7 +19,7 @@ def generate_comic_route(img_model='dall-e-2'):
     user_id = data.get('userId')
     scenario = data.get('scenario')
     story_title = data.get('storyTitle')
-    style = data.get('selectedStyle', 'american comic, colored')
+    selectedStyle = data.get('selectedStyle', 'tintinstyle')
     language = data.get('selectedLanguage', 'english')
     story_length = data.get('storyLength', 'short').upper()
 
@@ -45,7 +45,7 @@ def generate_comic_route(img_model='dall-e-2'):
         scenario=scenario,
         user_id=user_id,
         img_model=img_model,
-        style=style,
+        selectedStyle=selectedStyle,
         language=language,
         story_title=story_title,
         num_panels=num_panels
