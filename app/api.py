@@ -2,7 +2,7 @@
 from flask import Blueprint, request, jsonify, send_file
 from app.generate.comic_generator import ComicGenerator  # Updated to use ComicGenerator
 from app.storage.storage_manager import ComicStorageManager
-from app.utils.enums import StoryLength
+from app.utils.enums import StoryLength, StyleDescription
 import os
 from io import BytesIO
 
@@ -19,13 +19,14 @@ def generate_comic_route(img_model='dall-e-2'):
     user_id = data.get('userId')
     scenario = data.get('scenario')
     story_title = data.get('storyTitle')
-    selectedStyle = data.get('selectedStyle', 'tintinstyle')
+    selectedStyle = data.get('selectedStyle', 'tintin').upper()
     language = data.get('selectedLanguage', 'english')
     story_length = data.get('storyLength', 'short').upper()
 
     # Determine the number of panels based on story length
     try:
         num_panels = StoryLength[story_length].value
+        selectedStyle = StyleDescription[selectedStyle].value
     except KeyError:
         return jsonify({"error": "Invalid storyLength provided. Choose 'short', 'medium', or 'long'."}), 400
 

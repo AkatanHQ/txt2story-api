@@ -17,6 +17,7 @@ class ImageGenerator:
         self.img_model = img_model
         self.model_resolution = model_resolution
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
+        self.getimg_api_key = os.getenv("GETIMG_API_KEY")
 
     def text_to_image_openai(self, prompt):
         # Initialize OpenAI client
@@ -36,6 +37,32 @@ class ImageGenerator:
         img = Image.open(BytesIO(image_response.content))
 
         return img
+
+    def text_to_image_getimg(self, prompt):
+        headers = {
+            "Authorization": f"Bearer {self.getimg_api_key}",
+            "Content-Type": "application/json",
+        }
+
+        payload = {
+            "prompt": prompt,
+            "model": "stable-diffusion",  # or any model Getimg.ai supports
+            "size": self.model_resolution
+        }
+
+        # Make request to Getimg.ai API
+        response = requests.post("https://api.getimg.ai/v1/generate", headers=headers, json=payload)
+        
+        if response.status_code == 200:
+            data = response.json()
+            image_url = data.get("image_url")
+            if image_url:
+                image_response = requests.get(image_url)
+                img = Image.open(BytesIO(image_response.content))
+                return img
+        else:
+            raise Exception(f"Failed to generate image with Getimg.ai. Status code: {response.status_code}, Error: {response.text}")
+
 
     def text_to_image_stabilityAI(self, prompt):
         os.environ['STABILITY_HOST'] = 'grpc.stability.ai:443'
@@ -79,6 +106,8 @@ class ImageGenerator:
             return self.text_to_image_openai(prompt)
         elif "stability" in self.img_model:
             return self.text_to_image_stabilityAI(prompt)
+        elif "getimg-ai" in self.img_model:
+            return self.text_to_image_getimg(prompt)
         else:
             raise ValueError(f"Unsupported model: {self.img_model}")
 
