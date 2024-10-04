@@ -19,6 +19,17 @@ class ComicStorageManager:
             os.makedirs(comic_directory, exist_ok=True)
         return comic_directory
 
+    def comic_exists(self, user_id, comic_name):
+        comic_directory = self.get_comic_directory(user_id, comic_name)
+        return os.path.exists(comic_directory)
+
+    def get_all_comic_names(self, user_id):
+        user_comics_directory = os.path.join(self.base_directory, f'user_{user_id}', 'comics')
+        if os.path.exists(user_comics_directory):
+            with self.lock:
+                return [comic_name for comic_name in os.listdir(user_comics_directory) if os.path.isdir(os.path.join(user_comics_directory, comic_name))]
+        return []
+
     def save_json(self, data, user_id, comic_name, json_name):
         comic_directory = self.create_comic_directory(user_id, comic_name)
         json_path = os.path.join(comic_directory, json_name)
