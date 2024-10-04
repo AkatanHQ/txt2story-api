@@ -24,14 +24,14 @@ scenario: {{
     description: 'Adrien and Vincent want to start a new product, and they create it in one night before presenting it to the board.',
     characters: [
         {{
-            id: 1,
+            id: 0,
             name: 'Adrien',
             appearance: 'A guy with blond hair wearing glasses.',
             description: '',
             picture: null
         }},
         {{
-            id: 2,
+            id: 1,
             name: 'Vincent',
             appearance: 'A black guy with black hair and a beard',
             description: '',
@@ -41,7 +41,7 @@ scenario: {{
 }},
 Example output in English:
 
-# Panel 1
+# Panel 0
 description: "A tall man. Blue eyes. His hair is dark brown, medium length, slightly wavy, and falls naturally around his face, framing his forehead and temples. He wears thin, rectangular black-framed glasses that sit comfortably on his nose, adding a scholarly yet approachable touch to his look. His bright blue eyes, accentuated by the glasses, convey a friendly yet confident expression. He has a well-built, athletic physique, standing at around 6'2" with broad shoulders and toned muscles. His posture is relaxed but upright, suggesting both ease and confidence. He is dressed casually in a light blue button-down shirt with the sleeves rolled up to his elbows, showing his forearms, and well-fitted dark jeans that complement his athletic build." and "An african-american black tall man with a well-built, athletic physique, standing at around 6'2". He has short black hair that is neatly styled, with a trimmed beard that frames his face. His eyes are dark brown, exuding warmth and charisma. He has a confident smile that gives him a friendly, approachable appearance. His posture is relaxed yet confident, showing his easy-going nature. He is dressed casually in a fitted black t-shirt and dark jeans, with a modern, stylish look that complements his personality." -- They are sitting at the office, with computers.
 text:
 ```

@@ -27,7 +27,7 @@ if __name__ == "__main__":
     # Specify the parameters
     user_id = "user_test1"
     story_title = "Generated_Story_1"
-    panel_index = 1
+    panel_index = 0
     save_path = "panel1.png"  # Path where you want to save the image
 
     # Call the function to retrieve and save the image

@@ -57,6 +57,21 @@ def generate_comic_route(img_model='dall-e-2'):
 
     return jsonify({"message": "Comic generated successfully.", "panels": panels}), 200
 
+@api.route('/get_user_comics', methods=['GET'])
+def get_user_comics_route():
+    user_id = request.args.get('userId')
+
+    if not user_id:
+        return jsonify({"error": "userId must be provided."}), 400
+
+    # Get all comic names for the given user_id using the storage manager
+    comic_names = storage_manager.get_all_comic_names(user_id)
+
+    if not comic_names:
+        return jsonify({"message": "No comics found for the user.", "comics": []}), 200
+
+    return jsonify({"message": "Comics retrieved successfully.", "comics": comic_names}), 200
+
 
 @api.route('/get_comic', methods=['GET'])
 def get_comic_route():
