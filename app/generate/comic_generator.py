@@ -1,5 +1,6 @@
 from app.generate.generate_panels import generate_panels
 from app.generate.image_generator import ImageGenerator
+from app.generate.generate_params import ParamTextGenerator
 import concurrent.futures
 import time
 import signal
@@ -12,9 +13,6 @@ class ComicGenerator:
 
     def generate_comic(self, scenario=None, user_id=None, story_title=None, img_model='dall-e-2', selectedStyle="tintinstyle", language='english', num_panels=6):
         try:
-            # Validate input
-            if not story_title:
-                raise ValueError("story_title must be provided.")
             if not user_id:
                 raise ValueError("user_id must be provided.")
 
@@ -22,7 +20,14 @@ class ComicGenerator:
             self.image_generator = ImageGenerator(img_model=img_model)
 
             # Load or generate the panels
-            panels = self.generate_panels(scenario, user_id, story_title, language, num_panels)
+            panels = self.generate_panels(scenario, user_id, language, num_panels)
+
+            # Generate a title if not given.
+            if not story_title:
+                generator = ParamTextGenerator()
+                story_title = generator.generate_title(panels)
+                print(story_title)
+
             self.storage_manager.save_json(panels, user_id, story_title, 'panels.json')
 
             # Generate images for each panel and update the panels data
@@ -39,7 +44,7 @@ class ComicGenerator:
             print(f"Error: {e}")
             return None
 
-    def generate_panels(self, scenario, user_id, story_title, language, num_panels):
+    def generate_panels(self, scenario, user_id, language, num_panels):
         """
         Loads panels from storage or generates them based on the provided scenario or manual input.
         Returns a list of panels.

@@ -27,14 +27,12 @@ def generate_comic_route(img_model='dall-e-2'):
     try:
         num_panels = StoryLength[story_length].value
         selectedStyle = StyleDescription[selectedStyle].value
-    except KeyError:
-        return jsonify({"error": "Invalid storyLength provided. Choose 'short', 'medium', or 'long'."}), 400
+    except Exception as e:
+        return jsonify({"error": "Invalid storyLength or selectedStyle provided.", "message": e}), 400
 
     # Validate required fields
     if not user_id:
         return jsonify({"error": "userId must be provided."}), 400
-    if not story_title:
-        return jsonify({"error": "storyTitle must be provided."}), 400
 
     # Instantiate ComicGenerator with the storage manager and selected parameters
     comic_generator = ComicGenerator(

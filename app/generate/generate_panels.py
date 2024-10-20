@@ -18,6 +18,7 @@ For each cartoon panel, you will:
    - Each sentence must start with the character's name to make it clear who is speaking or acting.
 
 Language should be in {language}.
+Follow the example output outline, exactly.
 
 Example input:
 scenario: {{
@@ -62,18 +63,27 @@ def generate_panels(scenario, num_panels, language="english"):
     formatted_prompt = template.format(scenario=scenario, num_panels=num_panels, language=language)
     client = OpenAI()
 
-    completion = client.chat.completions.create(
-    model="gpt-4o",
-    messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": formatted_prompt},
-        ]
-    )
+    try:
+        completion = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": formatted_prompt},
+            ]
+        )
+    except Exception as e:
+        print(f"Error calling OpenAI API: {e}")
+        return []  # Return an empty list or handle it according to your needs
 
     # Extract the content from the API response
-    result = completion.choices[0].message.content
+    try:
+        result = completion.choices[0].message.content
+    except (IndexError, AttributeError) as e:
+        print(f"Error extracting response content: {e}")
+        return []  # Return an empty list or handle it according to your needs
+
     print(result)
-    
+
     # Parse and return the panel information
     return extract_panel_info(result)
 
@@ -89,16 +99,23 @@ def extract_panel_info(text):
             panel_index = re.search(r'\d+', block)
             if panel_index is not None:
                 panel_info['index'] = panel_index.group()
-            
+            else:
+                print("Warning: Panel index not found in block:", block)
+
             # Extracting panel description
             panel_description = re.search(r'description: (.+)', block)
             if panel_description is not None:
                 panel_info['description'] = panel_description.group(1)
-            
+            else:
+                print("Warning: Panel description not found in block:", block)
+
             # Extracting panel text
             panel_text = re.search(r'text:\n```\n(.+)\n```', block, re.DOTALL)
             if panel_text is not None:
                 panel_info['text'] = panel_text.group(1)
-            
+            else:
+                print("Warning: Panel text not found in block:", block)
+
             panel_info_list.append(panel_info)
+
     return panel_info_list

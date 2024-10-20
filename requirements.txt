@@ -6,6 +6,6 @@ langchain_community
 flask
 python-dotenv
 
-transformers
-diffusers
-accelerate
+# transformers
+# diffusers
+# accelerate

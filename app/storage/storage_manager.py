@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import threading
 from PIL import Image
@@ -14,6 +15,8 @@ class ComicStorageManager:
         return os.path.join(self.base_directory, f'user_{user_id}', 'comics', comic_name)
 
     def create_comic_directory(self, user_id, comic_name):
+        # Sanitize comic_name to remove invalid characters
+        comic_name = self.sanitize_filename(comic_name)
         comic_directory = self.get_comic_directory(user_id, comic_name)
         with self.lock:
             os.makedirs(comic_directory, exist_ok=True)
@@ -70,3 +73,9 @@ class ComicStorageManager:
             with self.lock:
                 return Image.open(image_path)
         return None
+
+    def sanitize_filename(self, filename):
+        # Replace invalid characters with underscores, including spaces
+        filename = re.sub(r'[<>:"/\\|?*]', '_', filename)  # Replace invalid characters with underscores
+        filename = filename.replace(' ', '_')  # Replace spaces with underscores
+        return filename

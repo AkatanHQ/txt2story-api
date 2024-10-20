@@ -29,9 +29,9 @@ payload = {
 			}
 		]
 	},
-    'selectedStyle': style_description,
-    'storyTitle': 'blackandblond1',
-    'storyLength': 'short',
+    'selectedStyle': 'TINTIN',
+    'storyTitle': '',
+    'storyLength': 'SHORT',
     'selectedLanguage': 'english'
 }
 
