@@ -36,7 +36,7 @@ For each cartoon panel, you will:
    - **Max 3 Lines:** Keep the text concise and suitable for young readers.
 3. Start with index 0 for the panels.
 4. The title should be short and relevant.
-5. Repeat the character descriptions in each panel description. Each panel stands alone and does not reference the others.
+5. Repeat the character descriptions in a concise format at the start of each panel description, followed by the scenario description.
 
 Language should be in {language}.
 

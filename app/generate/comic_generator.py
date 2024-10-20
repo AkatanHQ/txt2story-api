@@ -11,7 +11,7 @@ class ComicGenerator:
     def __init__(self, storage_manager):
         self.storage_manager = storage_manager
 
-    def generate_comic(self, scenario=None, user_id=None, story_title=None, img_model='dall-e-2', selectedStyle="tintinstyle", language='english', num_panels=6):
+    def generate_comic(self, scenario=None, user_id=None, story_title=None, img_model='dall-e-2', selectedStyle="tintin", language='english', num_panels=6):
         try:
             if not user_id:
                 raise ValueError("user_id must be provided.")
@@ -20,19 +20,14 @@ class ComicGenerator:
             self.image_generator = ImageGenerator(img_model=img_model)
 
             # Load or generate the panels
-            panels = self.generate_panels(scenario, user_id, language, num_panels)
-
-            # Generate a title if not given.
-            if not story_title:
-                generator = ParamTextGenerator()
-                story_title = generator.generate_title(panels)
-                print(story_title)
-
-            self.storage_manager.save_json(panels, user_id, story_title, 'panels.json')
-
+            book_data = self.generate_panels(scenario, user_id, language, num_panels)
+            story_title = book_data["title"]
+            self.storage_manager.save_json(book_data, user_id, story_title, 'panels.json')
+            
             # Generate images for each panel and update the panels data
-            panels = self.generate_images_for_panels(panels, user_id, story_title, selectedStyle)
-            self.storage_manager.save_json(panels, user_id, story_title, 'panels.json')
+            panels = self.generate_images_for_panels(book_data["panels"], user_id, story_title, selectedStyle)
+            book_data["panels"] = panels
+            self.storage_manager.save_json(book_data, user_id, story_title, 'panels.json')
 
             print(f"Story generated successfully! Files saved to {self.storage_manager.get_comic_directory(user_id, story_title)}")
             return panels
