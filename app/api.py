@@ -55,7 +55,7 @@ def generate_comic_route(img_model='dall-e-2'):
         return jsonify({"error": "Comic generation failed."}), 500
     response_data = {
         "message": "Comic generated successfully.",
-        "book_data": book_data
+        "data": book_data
     }
 
     return jsonify(response_data), 200
@@ -95,7 +95,7 @@ def get_comic_route():
     # Prepare response data with panel paths
     response_data = {
         "message": "Comic retrieved successfully.",
-        "book_data": book_data
+        "data": book_data
     }
 
     return jsonify(response_data), 200
