@@ -40,7 +40,7 @@ def generate_comic_route(img_model='dall-e-2'):
     )
 
     # Generate the comic
-    panels = comic_generator.generate_comic(
+    book_data = comic_generator.generate_comic(
         scenario=scenario,
         user_id=user_id,
         img_model=img_model,
@@ -49,11 +49,16 @@ def generate_comic_route(img_model='dall-e-2'):
         story_title=story_title,
         num_panels=num_panels
     )
-    
-    if panels is None:
-        return jsonify({"error": "Comic generation failed."}), 500
 
-    return jsonify({"message": "Comic generated successfully.", "panels": panels}), 200
+    
+    if book_data is None:
+        return jsonify({"error": "Comic generation failed."}), 500
+    response_data = {
+        "message": "Comic generated successfully.",
+        "book_data": book_data
+    }
+
+    return jsonify(response_data), 200
 
 @api.route('/get_user_comics', methods=['GET'])
 def get_user_comics_route():
@@ -82,15 +87,15 @@ def get_comic_route():
         return jsonify({"error": "storyTitle must be provided."}), 400
 
     # Load the panels JSON using the shared storage manager
-    panels = storage_manager.load_json(user_id=user_id, comic_name=story_title, json_name='panels.json')
+    book_data = storage_manager.load_json(user_id=user_id, comic_name=story_title, json_name='panels.json')
     
-    if panels is None:
+    if book_data is None:
         return jsonify({"error": "Comic not found."}), 404
 
     # Prepare response data with panel paths
     response_data = {
         "message": "Comic retrieved successfully.",
-        "panels": panels
+        "book_data": book_data
     }
 
     return jsonify(response_data), 200

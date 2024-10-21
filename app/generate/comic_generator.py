@@ -30,7 +30,7 @@ class ComicGenerator:
             self.storage_manager.save_json(book_data, user_id, story_title, 'panels.json')
 
             print(f"Story generated successfully! Files saved to {self.storage_manager.get_comic_directory(user_id, story_title)}")
-            return panels
+            return book_data
 
         except KeyboardInterrupt:
             print("Process interrupted by user. Shutting down...")
