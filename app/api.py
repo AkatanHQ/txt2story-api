@@ -71,9 +71,9 @@ def get_user_comics_route():
     comic_names = storage_manager.get_all_comic_names(user_id)
 
     if not comic_names:
-        return jsonify({"message": "No comics found for the user.", "comics": []}), 200
+        return jsonify({"message": "No comics found for the user.", "data": []}), 200
 
-    return jsonify({"message": "Comics retrieved successfully.", "comics": comic_names}), 200
+    return jsonify({"message": "Comics retrieved successfully.", "data": comic_names}), 200
 
 
 @api.route('/get_comic', methods=['GET'])
@@ -81,6 +81,7 @@ def get_comic_route():
     user_id = request.args.get('userId')
     story_title = request.args.get('storyTitle')
 
+    print(user_id, story_title)
     if not user_id:
         return jsonify({"error": "userId must be provided."}), 400
     if not story_title:
