@@ -1,11 +1,6 @@
-langchain
 openai
 stability-sdk
-pillow
-langchain_community
 flask
 python-dotenv
-
-# transformers
-# diffusers
-# accelerate
+flask_cors
+waitress

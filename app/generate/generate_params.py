@@ -26,12 +26,6 @@ class ParamTextGenerator:
             dict: A JSON object with a structured format containing the story panels.
         """
 
-        # Construct the character descriptions part of the prompt
-        character_descriptions = "\n".join([
-            f"- {character['name']}: {character['appearance']}"
-            for character in characters
-        ])
-
         # Construct the structured story prompt
         formatted_prompt = f"""
         Write a story in {language} with approximately {number_of_pages} pages. The story should feature the following characters and follow the given storyline. The story structure should include:
@@ -42,7 +36,7 @@ class ParamTextGenerator:
         4. **Resolution**: Wrap up the quest, show character growth, or reveal the outcome.
 
         **Characters:**
-        {character_descriptions}
+        {characters}
 
         **Storyline Description:**
         {description}
@@ -263,21 +257,37 @@ class ParamTextGenerator:
 
 # Example Usage
 if __name__ == "__main__":
-    # Define example story panels
-    story_panels = [
-        {"index": 0, "text": "In a sunny meadow, Benny the Bunny wakes up and stretches his little paws."},
-        {"index": 1, "text": "Benny hops along the path, greeting the birds and butterflies."},
-        {"index": 2, "text": "As Benny hops deeper into the woods, he meets a shy squirrel named Nibbles."},
-        {"index": 3, "text": "Finally, Benny finds the big oak tree and, behind it, the clover patch!"},
-        {"index": 4, "text": "With a heart full of joy, Benny hops home, carrying a small clover for each of his friends."}
+    # Define character details
+    characters = [
+        {
+            "name": "Elara",
+            "appearance": "Tall, lean, with short black hair and piercing green eyes. Wears a dark cloak over leather armor."
+        },
+        {
+            "name": "Ronan",
+            "appearance": "Broad-shouldered with a rugged beard and scar over his left brow. Dresses in a simple tunic and chainmail."
+        }
     ]
 
-    # Initialize the generator
-    generator = ParamTextGenerator()
-    
-    # Extract characters from the story panels
-    character_list = generator.extract_characters_from_story(story_panels)
+    # Define other parameters
+    language = "English"
+    number_of_pages = 5
+    description = "Elara and Ronan embark on a quest to retrieve a powerful relic to protect their kingdom. They must work together, facing challenges that test their courage, trust, and friendship."
 
-    # Print the detected characters in JSON format
-    print("Detected Characters:\n")
-    print(json.dumps(character_list, indent=2))
+    # Initialize the generator and generate the story
+    generator = ParamTextGenerator()
+    story = generator.generate_story_text(characters, language, number_of_pages, description)
+    characters = generator.generate_story_text(story)
+    detailed_characters = generator.generate_character_description(characters)
+
+    # Print the generated story
+    print("Generated Story:\n")
+    print(story)
+
+    # Print the generated story
+    print("Generated characters:\n")
+    print(characters)
+
+    # Print the generated story
+    print("Generated detailed_characters:\n")
+    print(detailed_characters)
