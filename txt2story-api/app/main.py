@@ -1,10 +1,10 @@
-from fastapi import FastAPI, HTTPException
-from app.routes import comic
+from fastapi import FastAPI
+from app.routers import comic_routers
 
-app = FastAPI(title="Comic API")
+app = FastAPI()
 
-app.include_router(comic.router)
+app.include_router(comic_routers.router)
 
 @app.get("/")
-def read_root():
-    return {"message": "Welcome to the Comic API"}
+async def root():
+    return {"message": "Welcome to the Comic Generator API!"}
