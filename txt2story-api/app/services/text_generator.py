@@ -158,13 +158,12 @@ class TextGenerator:
 
         return appearing_entities
 
-    def generate_entity_description(self, entity, short_description=False):
+    def generate_entity_description(self, entity):
         """
         Generates a description for a single entity based on provided details.
         
         Parameters:
             entity (dict): Dictionary with entity's name and appearance.
-            short_description (bool): If True, generates a shorter description.
             
         Returns:
             dict: Dictionary with the entity's name and generated detailed appearance.
@@ -178,10 +177,6 @@ class TextGenerator:
 
         If human/living creature, Include specific details on height, body build, hairstyle, facial features, clothing, and posture. Exclude implied entity traits, behavioral cues, and non-essential details. Aim for a description that directly informs the visual representation.
         """
-
-        # Adjust the prompt for a short description if requested
-        if short_description:
-            prompt_template += "\nOnly add the most important (color included). Ensure the description is no more than 200 entities."
 
         # Format the prompt with entity information
         formatted_prompt = prompt_template.format(
@@ -221,13 +216,12 @@ class TextGenerator:
         # Return the result as a dictionary
         return detailed_appearance
 
-    def generate_entity_descriptions(self, entities, short_description=False):
+    def generate_entity_descriptions(self, entities):
         """
         Generates descriptions for a list of entities.
         
         Parameters:
             entities (list): List of entity dictionaries with name and appearance.
-            short_description (bool): If True, generates shorter descriptions.
             
         Returns:
             list: List of dictionaries with each entity's name and generated detailed appearance.
@@ -236,7 +230,7 @@ class TextGenerator:
 
         for entity in entities:
             # Generate description for each entity
-            detailed_appearance = self.generate_entity_description(entity, short_description)
+            detailed_appearance = self.generate_entity_description(entity)
             entity["detailed_appearance"] = detailed_appearance
             descriptions.append(entity)
 
