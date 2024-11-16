@@ -1,6 +1,5 @@
-openai
-stability-sdk
-flask
+fastapi
+uvicorn
 python-dotenv
-flask_cors
-waitress
+openai
+logging

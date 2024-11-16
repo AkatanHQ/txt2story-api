@@ -35,7 +35,7 @@ class StoryJsonBuilder:
             logger.debug(f"Extracted entities: {extracted_entities}")
 
             # Step 3: Generate detailed descriptions
-            self.detailed_entities = self.generator.generate_entity_descriptions(extracted_entities)
+            self.detailed_entities = self.generator.generate_entity_detailed_appearances(extracted_entities)
             logger.info("Entity descriptions generated successfully")
 
             # Step 4: Generate metadata

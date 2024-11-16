@@ -98,7 +98,7 @@ class TextGenerator:
             **Existing Entities:**
             {entities}
 
-            Return the entities in a JSON format, where each entity includes 'name' and 'appearance' fields. Only include unique entities that are mentioned at least twice in the story. Entities can be: objects, characters, animals, etc.
+            Return the entities in a JSON format. Only include unique entities that are mentioned at least in two different image_prompts in the story. Entities can be: objects, characters, animals, etc.
             Also include the existing entities.
             """
 
@@ -120,6 +120,10 @@ class TextGenerator:
                                     "items": {
                                         "type": "object",
                                         "properties": {
+                                            "id": {
+                                                "type": "integer",
+                                                "description": "The id of the entity"
+                                            },
                                             "name": {
                                                 "type": "string",
                                                 "description": "The name of the entity"
@@ -129,7 +133,7 @@ class TextGenerator:
                                                 "description": "The appearance or description of the entity"
                                             }
                                         },
-                                        "required": ["name", "appearance"]
+                                        "required": ["id", "name", "appearance"]
                                     }
                                 }
                             },
@@ -149,9 +153,9 @@ class TextGenerator:
             logger.error(f"Error extracting extra entities: {e}", exc_info=True)
             raise RuntimeError("Failed to extract entities from story")
 
-    def generate_entity_description(self, entity):
+    def generate_entity_detailed_appearance(self, entity):
         try:
-            logger.info("Generating detailed description for entity")
+            logger.info(f"Generating detailed appearance for entity {entity['id']}")
             logger.debug(f"Entity input: {entity}")
 
             prompt_template = """
@@ -171,7 +175,7 @@ class TextGenerator:
                 ],
                 functions=[
                     {
-                        "name": "generate_entity_description",
+                        "name": "generate_entity_detailed_appearance",
                         "description": "Generate a detailed entity description",
                         "parameters": {
                             "type": "object",
@@ -185,20 +189,20 @@ class TextGenerator:
                         }
                     }
                 ],
-                function_call={"name": "generate_entity_description"}
+                function_call={"name": "generate_entity_detailed_appearance"}
             )
 
             detailed_appearance = json.loads(completion.choices[0].message.function_call.arguments)["detailed_appearance"]
-            logger.info("Successfully generated entity description")
-            logger.debug(f"Generated description: {detailed_appearance}")
-            return {"name": entity["name"], "detailed_appearance": detailed_appearance}
+            logger.info(f"Successfully generated entity appearance {entity['id']}")
+            logger.debug(f"Generated appearance: {detailed_appearance}")
+            return detailed_appearance
 
         except Exception as e:
             logger.error(f"Error generating entity description: {e}", exc_info=True)
             raise RuntimeError(f"Failed to generate description for entity {entity['name']}")
 
 
-    def generate_entity_descriptions(self, entities):
+    def generate_entity_detailed_appearances(self, entities):
         """
         Generates descriptions for a list of entities.
 
@@ -214,12 +218,11 @@ class TextGenerator:
 
             for entity in entities:
                 logger.debug(f"Processing entity: {entity}")
-                detailed_appearance = self.generate_entity_description(entity)
+                detailed_appearance = self.generate_entity_detailed_appearance(entity)
                 entity["detailed_appearance"] = detailed_appearance
-                descriptions.append(entity)
 
-            logger.info("Successfully generated descriptions for all entities")
-            return descriptions
+            logger.info("Successfully generated detailed appearances for all entities")
+            return entities
 
         except Exception as e:
             logger.error(f"Error generating entity descriptions: {e}", exc_info=True)
