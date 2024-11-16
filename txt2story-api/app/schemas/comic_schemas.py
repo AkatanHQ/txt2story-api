@@ -8,3 +8,7 @@ class ComicRequest(BaseModel):
     number_of_pages: int
     img_model: str
     entities: List[Dict[str, str]]
+
+class ImageRequest(BaseModel):
+    image_prompt: str
+    entities: List[Dict]
