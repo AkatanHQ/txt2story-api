@@ -1,7 +1,8 @@
 from pydantic import BaseModel
 from typing import List, Dict, Optional
+from app.utils.enums import StyleOptions
 
-class Entity(BaseModel):
+class EntityRequest(BaseModel):
     id: int
     name: Optional[str] = None 
     appearance: Optional[str] = None 
@@ -15,10 +16,5 @@ class ComicRequest(BaseModel):
     scenario: str
     language: str
     number_of_pages: int
-    entities: List[Entity]
-
-class ImageRequest(BaseModel):
-    image_prompt: str
-    style: str 
-    entities: List[Dict]
+    entities: List[EntityRequest]
 

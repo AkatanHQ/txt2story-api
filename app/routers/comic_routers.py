@@ -1,10 +1,13 @@
+from app.utils.enums import StyleOptions, StyleDescription
 from fastapi import APIRouter, Depends, HTTPException
-from app.schemas.comic_schemas import ComicRequest, ImageRequest
+from app.schemas.comic_schemas import ComicRequest, EntityRequest
 from app.services.story_json_builder import StoryJsonBuilder
 from app.services.image_generator import ImageGenerator
 from fastapi.responses import StreamingResponse
 from io import BytesIO
 from app.utils.logger import logger
+from typing import List, Dict, Optional
+import json
 
 router = APIRouter()
 
@@ -34,20 +37,39 @@ async def generate_comic(request: ComicRequest):
 
 @router.post("/api/generate_image")
 async def generate_image(
-    request: ImageRequest,
+    image_prompt: str,
+    entities: List[EntityRequest],
+    style: StyleOptions = StyleOptions.COMIC,
     image_model: str = "dall-e-3",
     model_resolution: str = "1024x1024",
-    style: str = "tintin"
 ):
     try:
         logger.info("Received request to generate image")
-        logger.debug(f"Image generation parameters: model={image_model}, resolution={model_resolution}, style={style}")
+        logger.debug(
+            f"Image generation parameters: model={image_model}, resolution={model_resolution}, style={style}"
+        )
 
         # Initialize the image generator
         image_generator = ImageGenerator(img_model=image_model, model_resolution=model_resolution)
 
+        # Transform the style to a description
+        try:
+            style_description = StyleDescription[style.value].value
+        except KeyError as ke:
+            logger.error(f"Style mapping error: {ke}")
+            raise ValueError(f"Style description not found for the given style: {style.value}")
+
+        # Prepare the prompt
+        prompt = json.dumps({
+            "image_prompt": image_prompt,
+            "entities": [entity.dict() for entity in entities],  # Assuming entities can be serialized with .dict()
+            "style": style_description,
+        })
+
+        logger.debug(f"Generated prompt: {prompt}")
+
         # Generate the image
-        generated_image = image_generator.generate_image(request.image_prompt)
+        generated_image = image_generator.generate_image(prompt)
         logger.info(f"Image generation completed with model {image_model}")
 
         # Save the image into a BytesIO buffer

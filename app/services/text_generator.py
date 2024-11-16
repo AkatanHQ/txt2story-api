@@ -25,7 +25,7 @@ class TextGenerator:
             logger.debug(f"Input parameters: entities={entities}, language={language}, number_of_pages={number_of_pages}, scenario={scenario}")
 
             formatted_prompt = f"""
-            Write a story in {language} with approximately {number_of_pages} pages. The story should feature the following entities and follow the given storyline. The story structure should include:
+            Write a story in {language} with exactly {number_of_pages} pages. The story should feature the following entities and follow the given storyline. The story structure should include:
 
             1. **Introduction**: Set the scene, introduce the main entities, and describe the setting.
             2. **Rising Action**: Present the main challenge or quest the entities face.
@@ -90,22 +90,31 @@ class TextGenerator:
             logger.debug(f"Story text: {story_text}, Existing entities: {entities}")
 
             formatted_prompt = f"""
-            Analyze the following story panels to identify all unique entity mentioned. For each entity, return their reference and any appearance or descriptive information given in the story.
+                Analyze the following story panels to extract all unique entities. For each entity:
+                1. Identify its reference (e.g., name or description).
+                2. Include any descriptive or appearance-related details.
+                3. Ensure the entity occurs in **at least two separate indexes** within the story. Do not include entities that appear in only one index, unless they are listed under "Existing Entities."
+                4. DO NOT return entities that only appear once in the image_prompts
 
-            **Story Panels:**
-            {story_text}
+                **Story Panels:**
+                {story_text}
 
-            **Existing Entities:**
-            {entities}
+                **Existing Entities:**
+                {entities}
 
-            Return the entities in a JSON format. Only include unique entities that are mentioned at least in two different image_prompts in the story. Entities can be: objects, characters, animals, etc.
-            Also include the existing entities.
-            """
+                Return the output in JSON format with the following structure:
+                - "entities": A list of unique entities appearing in at least two indexes, each including:
+                - "name": The entity's name or reference.
+                - "description": A compilation of descriptive or appearance-related information.
+                - "indexes": The list of indexes where the entity appears.
+
+                Also include any existing entities provided, even if they do not meet the occurrence requirement.
+                """
 
             completion = self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "You are a creative assistant for entity extraction."},
+                    {"role": "system", "content": "You are an AI assistant for entity extraction."},
                     {"role": "user", "content": formatted_prompt},
                 ],
                 functions=[
@@ -159,7 +168,8 @@ class TextGenerator:
             logger.debug(f"Entity input: {entity}")
 
             prompt_template = """
-            Given the following entity details, generate a vivid and detailed physical description of the entity, focusing solely on their appearance, clothing, and notable features.
+            Given the following entity details, generate a vivid and detailed physical description of the entity, focusing solely on their appearance, clothing, and notable features. Keep it concise, retaining only the essential visual features needed for an image. Focus on main clothing colors, materials, accessories, and prominent physical traits while omitting overly specific or repetitive details.
+            
 
             Entity Name: {name}
             Appearance: {appearance}

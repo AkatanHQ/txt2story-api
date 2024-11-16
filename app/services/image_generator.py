@@ -1,4 +1,4 @@
-from openai import OpenAI
+from openai import OpenAI, OpenAIError
 import requests
 from io import BytesIO
 from PIL import Image
@@ -41,6 +41,9 @@ class ImageGenerator:
             img = Image.open(BytesIO(image_response.content))
 
             return img
+        except OpenAIError as oe:
+            logger.error(f"OpenAI API error: {oe}", exc_info=True)
+            raise oe  # Re-raise the OpenAI-specific error
         except Exception as e:
             logger.error(f"Error in text_to_image_openai: {e}", exc_info=True)
             raise RuntimeError("Error generating image via OpenAI API")
