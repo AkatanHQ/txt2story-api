@@ -1,5 +1,4 @@
 from app.services.text_generator import TextGenerator
-import json
 from app.utils.logger import logger
 
 class StoryJsonBuilder:

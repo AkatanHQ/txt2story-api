@@ -1,7 +1,4 @@
 from openai import OpenAI, OpenAIError
-import requests
-from io import BytesIO
-from PIL import Image
 import os
 from dotenv import load_dotenv
 from app.utils.logger import logger
@@ -37,10 +34,8 @@ class ImageGenerator:
             logger.debug(f"Image generation response: {response}")
 
             image_url = response.data[0].url
-            image_response = requests.get(image_url)
-            img = Image.open(BytesIO(image_response.content))
-
-            return img
+            return image_url
+        
         except OpenAIError as oe:
             logger.error(f"OpenAI API error: {oe}", exc_info=True)
             raise oe  # Re-raise the OpenAI-specific error

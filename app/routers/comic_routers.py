@@ -69,16 +69,11 @@ async def generate_image(
         logger.debug(f"Generated prompt: {prompt}")
 
         # Generate the image
-        generated_image = image_generator.generate_image(prompt)
+        generated_image_url = image_generator.generate_image(prompt)
         logger.info(f"Image generation completed with model {image_model}")
 
-        # Save the image into a BytesIO buffer
-        img_buffer = BytesIO()
-        generated_image.save(img_buffer, format="PNG")
-        img_buffer.seek(0)
-
         # Stream the image back to the client
-        return StreamingResponse(img_buffer, media_type="image/png")
+        return generated_image_url
 
     except ValueError as ve:
         logger.warning(f"Validation error: {ve}")
