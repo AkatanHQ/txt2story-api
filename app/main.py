@@ -8,11 +8,8 @@ from app.utils.logger import logger
 # Load environment variables from .env file
 load_dotenv()
 
-
 # Initialize the FastAPI app
 app = FastAPI()
-
-
 
 # Include application routers
 app.include_router(comic_routers.router)
