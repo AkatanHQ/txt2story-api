@@ -10,11 +10,3 @@ class EntityRequest(BaseModel):
     description: Optional[str] = None 
     picture: Optional[str] = None
     dreambooth: bool = False
-
-class ComicRequest(BaseModel):
-    user_id: int
-    scenario: str
-    language: str
-    number_of_pages: int
-    entities: List[EntityRequest]
-

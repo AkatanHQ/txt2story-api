@@ -1,6 +1,6 @@
 from app.utils.enums import StyleOptions, StyleDescription
 from fastapi import APIRouter, Depends, HTTPException
-from app.schemas.comic_schemas import ComicRequest, EntityRequest
+from app.schemas.comic_schemas import EntityRequest
 from app.services.story_json_builder import StoryJsonBuilder
 from app.services.image_generator import ImageGenerator
 from fastapi.responses import StreamingResponse
@@ -12,20 +12,26 @@ import json
 router = APIRouter()
 
 @router.post("/api/generate_comic")
-async def generate_comic(request: ComicRequest):
+async def generate_comic(
+    user_id: int,
+    scenario: str,
+    language: str,
+    number_of_pages: int,
+    entities: List[EntityRequest]
+):
     try:
         logger.info("Received request to generate comic")
-        logger.debug(f"Request details: {request.dict()}")
+        logger.info(f"Request details: user_id={user_id}, scenario={scenario}, language={language}, number_of_pages={number_of_pages}, entities={entities}")
 
         # Create the story JSON builder
         story_builder = StoryJsonBuilder()
 
         # Generate the story
         story_builder.generate_story(
-            entities=request.entities,
-            language=request.language,
-            number_of_pages=request.number_of_pages,
-            scenario=request.scenario
+            entities=entities,
+            language=language,
+            number_of_pages=number_of_pages,
+            scenario=scenario
         )
 
         logger.info("Comic generation completed successfully")
@@ -34,6 +40,7 @@ async def generate_comic(request: ComicRequest):
     except Exception as e:
         logger.error(f"Error generating comic: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error generating comic.")
+
 
 @router.post("/api/generate_image")
 async def generate_image(
