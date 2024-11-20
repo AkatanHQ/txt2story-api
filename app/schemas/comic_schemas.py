@@ -10,3 +10,4 @@ class EntityRequest(BaseModel):
     description: Optional[str] = None 
     picture: Optional[str] = None
     dreambooth: bool = False
+
