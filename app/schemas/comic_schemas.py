@@ -24,3 +24,5 @@ class ComicRequest(BaseModel):
     language: str
     number_of_pages: int
     entities: List[EntityRequest]
+
+

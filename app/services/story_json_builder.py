@@ -56,4 +56,3 @@ class StoryJsonBuilder:
         except Exception as e:
             logger.error(f"Error compiling full story: {e}", exc_info=True)
             raise RuntimeError("Error retrieving story data")
-

@@ -99,11 +99,11 @@ class ImageGenerator:
 
             # Format the request prompt
             formatted_prompt = f"""
-            Reduce the following text to a maximum of {max_length - 100} characters while retaining its essential meaning and details:
+            Reduce the following text to a HARD LIMIT of {max_length - 100} characters. If necessary, prioritize brevity over detail:
 
             {prompt}
 
-            Return only the reduced text. Maximum length is HARD LIMIT! Don't go above it.
+            Return ONLY the reduced text. STRICT LIMIT of {max_length - 200} characters.
             """
 
             # Call the OpenAI API
@@ -118,8 +118,9 @@ class ImageGenerator:
             )
 
             # Extract the reduced prompt from the response
-            logger.debug("MARIA:", response.choices[0].message.content)
             reduced_prompt = response.choices[0].message.content
+            reduced_prompt = reduced_prompt[:max_length - 100]
+
 
             logger.info(f"Successfully reduced the prompt length to {len(reduced_prompt)}")
             logger.debug(f"Reduced prompt (Length: {len(reduced_prompt)}): {reduced_prompt}")

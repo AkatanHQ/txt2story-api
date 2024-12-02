@@ -39,6 +39,7 @@ class TextGenerator:
 
             - Structure the story in a series of narrative panels, where each panel represents a scene or important moment in the story.
             - Each panel should include an index, starting with 0, a concise text that captures the moment within this structure, and an Image prompt.
+            - Each panel should also include an empty image_url.
             """
 
             completion = self.client.chat.completions.create(
@@ -61,9 +62,10 @@ class TextGenerator:
                                         "properties": {
                                             "index": {"type": "integer"},
                                             "text": {"type": "string"},
-                                            "image_prompt": {"type": "string"}
+                                            "image_prompt": {"type": "string"},
+                                            "image_url": {"type": "string"}
                                         },
-                                        "required": ["index", "text", "image_prompt"]
+                                        "required": ["index", "text", "image_prompt", "image_url"]
                                     }
                                 }
                             },
