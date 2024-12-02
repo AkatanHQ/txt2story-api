@@ -9,7 +9,6 @@ from starlette.responses import JSONResponse
 # Load environment variables from .env file
 load_dotenv()
 
-
 # Initialize the FastAPI app
 app = FastAPI()
 
