@@ -1,0 +1,52 @@
+{
+    "message": "Comic generated and saved successfully",
+    "data": {
+        "metadata": {
+            "title": "Hero of NeoMetropolis",
+            "genre": "Superhero Fiction",
+            "keywords": [
+                "superhero",
+                "villain",
+                "city",
+                "battle",
+                "hope"
+            ]
+        },
+        "story_text": [
+            {
+                "index": 0,
+                "text": "In the bustling city of NeoMetropolis, skyscrapers touched the azure sky, and people moved about in a blur of activity. Amid this urban chorus, Hero, a fearless superhero with a red cape and black mask that sparkled under the sunlight, stood vigilant atop the tallest building. His muscular build was a symbol of hope, and his sharp eyes scanned the horizon for any sign of trouble. The air was thick with anticipation as murmurs of a mysterious figure began to circulate—the Villain, known for his dark and sinister presence, lurking in the shadows, wearing a long black coat and a hat that concealed his nefarious intentions.",
+                "image_prompt": "A superhero with a red cape and black mask standing on a skyscraper, overlooking a busy city at dawn. Skyscrapers touch the sky, vibrant city life below.",
+                "image_url": ""
+            },
+            {
+                "index": 1,
+                "text": "As the sun set, casting an orange glow over the city, a sudden blackout plunged NeoMetropolis into darkness. The streets were quiet, save for whispers of dread. Hero leaped into action, his cape catching the wind as he descended to the chaos below. Sources pointed towards the power plant on the outskirts, where the Villain plotted his sinister scheme— to drain the city’s energy and harness it for his own malicious designs. Hero’s heart raced, knowing this was a challenge unlike any he had faced before.",
+                "image_prompt": "A superhero jumping into action during a city blackout, with an orange sunset in the background. Shadowy figures lurk at a distant power plant.",
+                "image_url": ""
+            },
+            {
+                "index": 2,
+                "text": "In a storm of crackling electricity and swirling dark clouds, Hero confronted the Villain at the very heart of the power plant. The Villain sneered, his eyes glowing under the brim of his hat as he unleashed a torrent of electrical energy. Hero dodged swiftly, countering with a surge of strength and determination. The ground trembled as they clashed, light versus dark, hope versus despair. In a dazzling flash, Hero overpowered the Villain, restoring light to NeoMetropolis as residents cheered from their balconies, their hearts filled with renewed hope and inspiration.",
+                "image_prompt": "An epic battle between a superhero and a villain in a stormy power plant. Sparks of electrical energy and swirling clouds create an intense scene.",
+                "image_url": ""
+            }
+        ],
+        "entities": [
+            {
+                "id": 1,
+                "name": "Hero",
+                "appearance": "Wears a cape and mask",
+                "detailed_appearance": "The Hero stands tall, their silhouette defined by a flowing cape that billows behind them in vibrant crimson, contrasting against the sleek black bodysuit beneath. The suit is crafted from a glossy, streamlined material that glistens under light, accentuating their athletic build. A striking, emblematic symbol adorns the chest, depicted in bold gold hues that catch the eye. The Hero's face is partially concealed by a fitted mask, made from the same high-tech fabric, leaving only intense, determined eyes visible. The mask features sharp angles, lending an air of mystery and strength. Completing the ensemble are sturdy black gloves and boots, both designed for agility, subtly detailed with golden lining that mirrors the emblem on their chest. Overall, the Hero exudes a formidable yet inspiring presence, poised for action.",
+                "description": "A fearless superhero"
+            },
+            {
+                "id": 2,
+                "name": "Villain",
+                "appearance": "Dark and sinister",
+                "detailed_appearance": "The Villain stands tall and imposing, draped in a long, flowing cloak of deep black velvet that shimmers ominously as it moves. Beneath the cloak, a fitted tunic of dark crimson glistens, made from a fabric that appears almost like liquid, hugging a lean figure. Gloves of ebony leather cover their hands, adorned with sharp metallic studs along the knuckles. A wide belt cinches the waist, featuring a sinister emblem that gleams with a dull silver hue. The face is partially obscured by a high collar and a menacing mask, its features sharp and angular, with piercing, narrow eyes that glow an unsettling shade of emerald green. Dark hair, slicked back and sharp, plays peek-a-boo from beneath a hooded cowl. A few subtle scars adorn the exposed skin, hinting at a dark past. Boots of black leather rise to mid-calf, their soles silent but deadly.",
+                "description": "A cunning and evil antagonist"
+            }
+        ]
+    }
+}

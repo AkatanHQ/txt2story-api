@@ -40,10 +40,11 @@ class TextGenerator:
             - Structure the story in a series of narrative panels, where each panel represents a scene or important moment in the story.
             - Each panel should include an index, starting with 0, a concise text that captures the moment within this structure, and an Image prompt.
             - Each panel should also include an empty image_url.
+            - Exactly {number_of_pages} panels.
             """
 
             completion = self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4o",
                 messages=[
                     {"role": "system", "content": "You are a creative assistant for storytelling."},
                     {"role": "user", "content": formatted_prompt},
