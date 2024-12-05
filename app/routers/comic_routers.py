@@ -9,6 +9,7 @@ import json
 router = APIRouter()
 
 
+
 @router.post("/api/generate-comic-book")
 async def generate_comic(request: ComicRequest):
     try:

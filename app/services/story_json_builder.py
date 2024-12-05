@@ -21,7 +21,7 @@ class StoryJsonBuilder:
             self.scenario = scenario
 
             # Step 1: Generate story text
-            self.story_text = self.generator.generate_story_text(
+            self.scenes = self.generator.generate_scenes(
                 entities=self.entities,
                 language=self.language,
                 number_of_pages=self.number_of_pages,
@@ -30,7 +30,7 @@ class StoryJsonBuilder:
             logger.info("Story text generated successfully")
 
             # Step 2: Extract unique entities
-            extracted_entities = self.generator.extract_extra_entities_from_story(self.story_text, self.entities)
+            extracted_entities = self.generator.extract_extra_entities_from_story(self.scenes, self.entities)
             logger.debug(f"Extracted entities: {extracted_entities}")
 
             # Step 3: Generate detailed descriptions
@@ -38,7 +38,7 @@ class StoryJsonBuilder:
             logger.info("Entity descriptions generated successfully")
 
             # Step 4: Generate metadata
-            self.metadata = self.generator.generate_metadata(self.story_text)
+            self.metadata = self.generator.generate_metadata(self.scenes)
             logger.info("Story metadata generated successfully")
 
         except Exception as e:
@@ -50,7 +50,7 @@ class StoryJsonBuilder:
             logger.info("Compiling full story data")
             return {
                 "metadata": self.metadata,
-                "story_text": self.story_text,
+                "scenes": self.scenes,
                 "entities": self.detailed_entities
             }
         except Exception as e:

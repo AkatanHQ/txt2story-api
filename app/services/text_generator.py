@@ -18,7 +18,7 @@ class TextGenerator:
             logger.error(f"Error initializing TextGenerator: {e}", exc_info=True)
             raise RuntimeError("Failed to initialize TextGenerator")
 
-    def generate_story_text(self, entities, language, number_of_pages, scenario):
+    def generate_scenes(self, entities, language, number_of_pages, scenario):
         try:
             logger.info("Generating story text")
             logger.debug(f"Input parameters: entities={entities}, language={language}, number_of_pages={number_of_pages}, scenario={scenario}")
@@ -37,10 +37,11 @@ class TextGenerator:
             **Storyline scenario:**
             {scenario}
 
-            - Structure the story in a series of narrative panels, where each panel represents a scene or important moment in the story.
-            - Each panel should include an index, starting with 0, a concise text that captures the moment within this structure, and an Image prompt.
-            - Each panel should also include an empty image_url.
-            - Exactly {number_of_pages} panels.
+            - Structure the story in a series of narrative scenes, where each scene represents an important moment in the story.
+            - Each scene should include an index, starting with 0, a concise text that captures the moment within this structure, and an image object that contains the image prompt, a public URL, and a signed URL for the image.
+            - URLS are both empty strings.
+            - The prompt is a description of an image accompanying the story-text of the index. It should use the entities name very clearly when showing them in the image. Make the scenes very different from each other.
+            - Exactly {number_of_pages} scenes.
             """
 
             completion = self.client.chat.completions.create(
@@ -51,70 +52,75 @@ class TextGenerator:
                 ],
                 functions=[
                     {
-                        "name": "generate_story_text",
-                        "description": "Generate a detailed story divided into panels with index, text",
+                        "name": "generate_scenes",
+                        "description": "Generate a detailed story divided into scenes with id, text, and image details",
                         "parameters": {
                             "type": "object",
                             "properties": {
-                                "panels": {
+                                "scenes": {
                                     "type": "array",
                                     "items": {
                                         "type": "object",
                                         "properties": {
                                             "index": {"type": "integer"},
                                             "text": {"type": "string"},
-                                            "image_prompt": {"type": "string"},
-                                            "image_url": {"type": "string"}
+                                            "image": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "prompt": {"type": "string"},
+                                                    "url": {"type": "string"},
+                                                    "signed_url": {"type": "string"}
+                                                },
+                                                "required": ["prompt", "url", "signed_url"]
+                                            }
                                         },
-                                        "required": ["index", "text", "image_prompt", "image_url"]
+                                        "required": ["index", "text", "image"]
                                     }
                                 }
                             },
-                            "required": ["panels"]
+                            "required": ["scenes"]
                         }
                     }
                 ],
-                function_call={"name": "generate_story_text"}
+                function_call={"name": "generate_scenes"}
             )
 
-            story_text = json.loads(completion.choices[0].message.function_call.arguments)["panels"]
+            scenes = json.loads(completion.choices[0].message.function_call.arguments)["scenes"]
             logger.info("Successfully generated story text")
-            logger.debug(f"Generated story panels: {story_text}")
-            return story_text
+            logger.debug(f"Generated story scenes: {scenes}")
+            return scenes
 
         except Exception as e:
             logger.error(f"Error generating story text: {e}", exc_info=True)
             raise RuntimeError("Failed to generate story text")
 
-    def extract_extra_entities_from_story(self, story_text, entities):
+
+    def extract_extra_entities_from_story(self, scenes, entities):
         try:
             logger.info("Extracting extra entities from story text")
-            logger.debug(f"Story text: {story_text}, Existing entities: {entities}")
+            logger.debug(f"Story text: {scenes}, Existing entities: {entities}")
 
             formatted_prompt = f"""
                 Analyze the following story panels to extract all unique entities. For each entity:
                 1. Identify its reference (e.g., name or description).
                 2. Include any descriptive or appearance-related details.
-                3. Ensure the entity occurs in **at least two separate indexes** within the story. Do not include entities that appear in only one index, unless they are listed under "Existing Entities."
-                4. DO NOT return entities that only appear once in the image_prompts
+                3. Ensure the entity occurs in **at least two separate prompts** within the story. Do not include entities that appear in only one prompt, unless they are listed under "Existing Entities."
 
                 **Story Panels:**
-                {story_text}
+                {scenes}
 
                 **Existing Entities:**
                 {entities}
 
                 Return the output in JSON format with the following structure:
-                - "entities": A list of unique entities appearing in at least two indexes, each including:
+                - "entities": A list of unique entities appearing in at least two prompts, each including:
                 - "name": The entity's name or reference.
                 - "description": A compilation of descriptive or appearance-related information.
                 - "indexes": The list of indexes where the entity appears.
-
-                Also include any existing entities provided, even if they do not meet the occurrence requirement.
                 """
 
             completion = self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4o",
                 messages=[
                     {"role": "system", "content": "You are an AI assistant for entity extraction."},
                     {"role": "user", "content": formatted_prompt},
