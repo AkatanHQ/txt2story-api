@@ -5,10 +5,9 @@ from app.utils.logger import logger
 from app.schemas.comic_schemas import EntityRequest, ComicRequest, ImageRequest
 from app.utils.enums import StyleDescription
 import json
+import uuid
 
 router = APIRouter()
-
-
 
 @router.post("/api/generate-comic-book")
 async def generate_comic(request: ComicRequest):
@@ -64,6 +63,7 @@ async def generate_image(request: ImageRequest):
         # Generate the image
         generated_image_url = image_generator.generate_image(prompt)
         logger.info(f"Image generation completed with model {request.image_model}")
+        print(generated_image_url)
 
         return generated_image_url
 

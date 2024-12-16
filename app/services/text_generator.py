@@ -39,6 +39,7 @@ class TextGenerator:
 
             - Structure the story in a series of narrative scenes, where each scene represents an important moment in the story.
             - Each scene should include an index, starting with 0, a concise text that captures the moment within this structure, and an image object that contains the image prompt, a public URL, and a signed URL for the image.
+            - text of story of each scene should be less than 300 chars.
             - URLS are both empty strings.
             - The prompt is a description of an image accompanying the story-text of the index. It should use the entities name very clearly when showing them in the image. Make the scenes very different from each other.
             - Exactly {number_of_pages} scenes.

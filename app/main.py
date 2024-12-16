@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request, HTTPException
 from app.routers import comic_routers
+from app.routers import fake_comic_routers
 from dotenv import load_dotenv
 import os
 from app.utils.logger import logger
