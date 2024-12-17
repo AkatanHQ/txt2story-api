@@ -8,7 +8,7 @@ class EntityRequest(BaseModel):
     appearance: Optional[str] = None
     detailed_appearance: Optional[str] = None
     description: Optional[str] = None
-    picture: Optional[str] = None
+    dreambooth_url: Optional[str] = None
     dreambooth: bool = False
 
 class ImageRequest(BaseModel):
@@ -24,5 +24,3 @@ class ComicRequest(BaseModel):
     language: str
     number_of_pages: int
     entities: List[EntityRequest]
-
-

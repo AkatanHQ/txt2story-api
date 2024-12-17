@@ -9,7 +9,7 @@ import uuid
 
 router = APIRouter()
 
-@router.post("/api/generate-comic-book")
+@router.post("/generate-story-text")
 async def generate_comic(request: ComicRequest):
     try:
         logger.info("Received request to generate comic")
@@ -33,7 +33,7 @@ async def generate_comic(request: ComicRequest):
         logger.error(f"Error generating comic: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error generating comic.")
 
-@router.post("/api/generate-image")
+@router.post("/generate-image")
 async def generate_image(request: ImageRequest):
     try:
         logger.info("Received request to generate image")
