@@ -9,15 +9,16 @@ import uuid
 
 router = APIRouter()
 
-@router.post("/api/generate-comic-book")
+@router.post("/generate-story-text")
 async def generate_comic(request: ComicRequest):
     try:
         logger.info("Received request to generate comic fake")
         logger.info(f"Request details for fake: {request}")
+        unique_id = str(uuid.uuid4())
 
         data = {
   "metadata": {
-    "title": "The Lantern of Sylvestria",
+    "title": f"The Lantern of Sylvestria_{unique_id}",
     "genre": "Fantasy Adventure",
     "keywords": [
       "magical quest",
@@ -60,7 +61,7 @@ async def generate_comic(request: ComicRequest):
         logger.error(f"Error generating comic: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error generating comic.")
 
-@router.post("/api/generate-image")
+@router.post("/generate-image")
 async def generate_image(request: ImageRequest):
     try:
         generated_image_url = "https://scontent-cph2-1.xx.fbcdn.net/v/t1.6435-9/122659566_2085416741594479_7361004250940575709_n.jpg?_nc_cat=103&ccb=1-7&_nc_sid=cc71e4&_nc_ohc=hmGAik-lepUQ7kNvgEt0K6D&_nc_zt=23&_nc_ht=scontent-cph2-1.xx&_nc_gid=A_gM-LHJcONzN1X-h9v3R3i&oh=00_AYBYvCqsUNF_Mxd1zLvZJMyqCucv70LsO--JnCEBUU_3aw&oe=6786B55F"

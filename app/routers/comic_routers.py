@@ -5,12 +5,11 @@ from app.utils.logger import logger
 from app.schemas.comic_schemas import EntityRequest, ComicRequest, ImageRequest
 from app.utils.enums import StyleDescription
 import json
-import uuid
 
 router = APIRouter()
 
 @router.post("/generate-story-text")
-async def generate_comic(request: ComicRequest):
+async def generate_story_text(request: ComicRequest):
     try:
         logger.info("Received request to generate comic")
         logger.info(f"Request details: {request}")
