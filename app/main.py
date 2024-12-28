@@ -14,7 +14,7 @@ load_dotenv()
 app = FastAPI()
 
 # Include application routers
-app.include_router(fake_comic_routers.router)
+app.include_router(comic_routers.router)
 
 # Root endpoint
 @app.get("/")
