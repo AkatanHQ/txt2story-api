@@ -9,6 +9,6 @@ class StyleDescription(str, Enum):
     TODDLER = "cheerful and playful illustration for toddlers featuring characters with big round heads and small, chubby bodies. The characters should have large, bright eyes and wide, friendly smiles, representing diverse skin tones and hairstyles. Use a vibrant color palette with bold reds, yellows, blues, and greens, alongside soft pastels for a warm feel. The background should be simple and whimsical, featuring elements like lush green grass, colorful flowers, and a sunny blue sky. The art style should be cartoonish and hand-drawn, conveying a joyful and fun atmosphere with characters engaging in playful activities."
 
 class StoryLength(Enum):
-    SHORT = 2
+    SHORT = 5
     MEDIUM = 10
     LONG = 15

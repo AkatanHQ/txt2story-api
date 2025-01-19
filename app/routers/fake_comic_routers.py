@@ -6,6 +6,8 @@ from app.schemas.comic_schemas import EntityRequest, ComicRequest, ImageRequest
 from app.utils.enums import StyleDescription
 import json
 import uuid
+import time
+
 
 router = APIRouter()
 
@@ -15,6 +17,9 @@ async def generate_comic(request: ComicRequest):
         logger.info("Received request to generate comic fake")
         logger.info(f"Request details for fake: {request}")
         unique_id = str(uuid.uuid4())
+        logger.info(f"Fake waiting 5 sec")
+        time.sleep(5)
+
 
         data = {
   "metadata": {
@@ -34,6 +39,24 @@ async def generate_comic(request: ComicRequest):
       "text": "In a distant land, nestled between towering snow-capped peaks and lush green valleys, lay the Kingdom of Sylvestria. The kingdom was renowned for its breathtaking landscapes and thriving wildlife. Every year, townsfolk gathered in the meadows to celebrate the Festival of Light, a joyous event that filled the skies with lanterns, symbolizing their dreams and hopes. On the eve of the festival, Elara, a young villager with a spirit as adventurous as her fiery red hair, stood at the edge of the village, looking out over the shimmering river. Her heart yearned for adventure beyond the confines of her quaint home.",
       "image": {
         "prompt": "A distant land with snow-capped peaks, lush green valleys, and a young girl with fiery red hair standing at the edge of a village during a festival with lanterns in the sky.",
+        "url": "",
+        "signed_url": ""
+      }
+    },
+    {
+      "index": 1,
+      "text": "Text for 2",
+      "image": {
+        "prompt": "prompt ofr 2 with lanterns in the sky.",
+        "url": "",
+        "signed_url": ""
+      }
+    },
+    {
+      "index": 2,
+      "text": "Text for 3",
+      "image": {
+        "prompt": "prompt ofr 3 with lanterns in the sky.",
         "url": "",
         "signed_url": ""
       }
@@ -64,7 +87,9 @@ async def generate_comic(request: ComicRequest):
 @router.post("/generate-image")
 async def generate_image(request: ImageRequest):
     try:
-        generated_image_url = "https://scontent-cph2-1.xx.fbcdn.net/v/t1.6435-9/122659566_2085416741594479_7361004250940575709_n.jpg?_nc_cat=103&ccb=1-7&_nc_sid=cc71e4&_nc_ohc=hmGAik-lepUQ7kNvgEt0K6D&_nc_zt=23&_nc_ht=scontent-cph2-1.xx&_nc_gid=A_gM-LHJcONzN1X-h9v3R3i&oh=00_AYBYvCqsUNF_Mxd1zLvZJMyqCucv70LsO--JnCEBUU_3aw&oe=6786B55F"
+        generated_image_url = "https://www.geeky-gadgets.com/wp-content/uploads/2023/10/DallE-3-vs-DallE-2-AI-image-creation-compared.webp"
+        logger.info(f"Fake waiting 5 sec")
+        time.sleep(5)
 
         return generated_image_url
 

@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+# File: app/routers/comic_routers.py
+
+from fastapi import APIRouter, HTTPException
+from openai import BadRequestError, OpenAIError
 from app.services.story_json_builder import StoryJsonBuilder
 from app.services.image_generator import ImageGenerator
 from app.utils.logger import logger
@@ -28,48 +31,82 @@ async def generate_story_text(request: ComicRequest):
         logger.info("Comic generation completed successfully")
         return story_builder.get_full_story()
 
+    except ValueError as ve:
+        logger.warning(f"Validation error: {ve}")
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
-        logger.error(f"Error generating comic: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Error generating comic.")
+        logger.error(f"Unexpected error generating comic: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while generating the comic. Please try again later."
+        )
 
 @router.post("/generate-image")
 async def generate_image(request: ImageRequest):
     try:
         logger.info("Received request to generate image")
-        logger.debug(
-            f"Image generation parameters: model={request.image_model}, resolution={request.model_resolution}, style={request.style}"
+
+        image_generator = ImageGenerator(
+            provider=request.provider,
+            img_model=request.image_model,
+            model_resolution=request.model_resolution
         )
 
-        # Initialize the image generator
-        image_generator = ImageGenerator(img_model=request.image_model, model_resolution=request.model_resolution)
-
-        # Transform the style to a description
+        # Convert the style to a description
         try:
-            style_description = StyleDescription[request.style.value].value
-        except KeyError as ke:
-            logger.error(f"Style mapping error: {ke}")
-            raise ValueError(f"Style description not found for the given style: {request.style.value}")
+            style_description = request.style.value
+        except KeyError:
+            logger.error(f"Invalid style: {request.style}")
+            raise HTTPException(
+                status_code=400,
+                detail="The selected style is not supported. Please choose a valid style."
+            )
 
-        # Prepare the prompt
+        # Prepare the JSON prompt
         prompt = json.dumps({
             "image_prompt": request.image_prompt,
-            "entities": [entity.dict() for entity in request.entities],  # Assuming entities can be serialized with .dict()
+            "entities": [entity.dict() for entity in request.entities],
             "style": style_description,
         })
 
-        logger.debug(f"Generated prompt: {prompt}")
+        logger.debug(f"Final prompt: {prompt}")
 
-        # Generate the image
-        generated_image_url = image_generator.generate_image(prompt)
-        logger.info(f"Image generation completed with model {request.image_model}")
-        print(generated_image_url)
+        # Because we only moderate if provider == "openai", call moderate_content:
+        if image_generator.moderate_content(prompt):
+            logger.warning("Prompt flagged by the OpenAI moderation.")
+            raise HTTPException(
+                status_code=400,
+                detail="The prompt contains inappropriate or prohibited content. Please modify and try again."
+            )
 
-        return generated_image_url
+        image_url = image_generator.generate_image(prompt)
+        logger.info(f"Image generation completed with provider {request.provider}")
+        return {"image_url": image_url}
 
+    except BadRequestError as ve:
+        # This includes content policy violations and other user-facing errors
+        logger.warning(f"Content policy violation or validation error: {ve}")
+        raise HTTPException(
+            status_code=400,
+            detail=str("Content policy violation or validation error")
+        )   
     except ValueError as ve:
-        logger.warning(f"Validation error: {ve}")
-        raise HTTPException(status_code=400, detail=str(ve))
+        # This includes content policy violations and other user-facing errors
+        logger.warning(f"Content policy violation or validation error: {ve}")
+        raise HTTPException(
+            status_code=400,
+            detail=str("Content policy violation or validation error")
+        )
+    except RuntimeError as re:
+        logger.error(f"Unexpected runtime error generating image: {re}", exc_info=False)
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred while generating the image. Please try again later."
+        )
 
     except Exception as e:
-        logger.error(f"Error generating image: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Error generating image.")
+        logger.error(f"Unexpected error generating image: {e}", exc_info=False)
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred. Please try again later."
+        )

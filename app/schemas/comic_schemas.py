@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
 from app.utils.enums import StyleOptions
 
@@ -12,6 +12,7 @@ class EntityRequest(BaseModel):
     dreambooth: bool = False
 
 class ImageRequest(BaseModel):
+    provider: str = Field(..., description="The provider to use (e.g., 'openai' or 'azure').")
     image_prompt: str
     entities: List[EntityRequest]
     style: StyleOptions = StyleOptions.COMIC
