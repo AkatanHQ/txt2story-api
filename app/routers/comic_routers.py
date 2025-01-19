@@ -81,7 +81,7 @@ async def generate_image(request: ImageRequest):
 
         image_url = image_generator.generate_image(prompt)
         logger.info(f"Image generation completed with provider {request.provider}")
-        return {"image_url": image_url}
+        return image_url
 
     except BadRequestError as ve:
         # This includes content policy violations and other user-facing errors
