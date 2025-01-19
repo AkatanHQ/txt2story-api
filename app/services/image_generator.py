@@ -1,5 +1,4 @@
-# File: app/services/image_generator.py
-
+import time
 import json
 from openai import OpenAI, AzureOpenAI, OpenAIError, BadRequestError
 import os
@@ -49,7 +48,6 @@ class ImageGenerator:
         """
         try:
             logger.info("Moderating content in the prompt")
-            
             if self.provider != "openai":
                 logger.info("Skipping moderation for non-OpenAI provider.")
                 return False
@@ -66,12 +64,12 @@ class ImageGenerator:
             logger.error(f"Error moderating content: {e}", exc_info=True)
             raise RuntimeError("Error in content moderation")
 
-    from openai import OpenAI, AzureOpenAI, OpenAIError, BadRequestError
-
-    def text_to_image(self, prompt):
+    def text_to_image(self, prompt, retry_count=1):
+        """
+        Attempts to generate an image from text. If a rate limit error occurs,
+        wait 60 seconds and retry once more.
+        """
         try:
-            # ... same as before ...
-            
             if self.provider == "azure":
                 response = self.client.images.generate(
                     model=self.img_model,
@@ -82,7 +80,6 @@ class ImageGenerator:
                 return image_url
 
             elif self.provider == "openai":
-                # Attempting generation
                 response = self.client.images.generate(
                     model=self.img_model,
                     prompt=prompt,
@@ -94,13 +91,32 @@ class ImageGenerator:
                 return image_url
             else:
                 raise ValueError(f"Unsupported provider: {self.provider}")
-            
+
         except BadRequestError as bre:
-            raise bre
-        except ValueError as ve:
-            raise ve
+            # Check if the error message indicates a rate limit.
+            # For AzureOpenAI, you might look at the content of the error to see if it's
+            # specifically a "Too many requests" or rate limit scenario.
+            error_msg = str(bre)
+            # Adjust the condition below to match how Azure/OpenAI returns rate-limit messages.
+            if "rate limit" in error_msg.lower() and retry_count > 0:
+                logger.warning("Rate limit reached. Waiting 60 seconds before retrying...")
+                time.sleep(60)
+                # Retry once
+                return self.text_to_image(prompt, retry_count=retry_count-1)
+            else:
+                raise bre
+
         except OpenAIError as oe:
-            raise oe
+            # If we’re using OpenAI’s official library, you could check
+            # for a specific RateLimitError or for a message in the exception text.
+            if "rate limit" in str(oe).lower() and retry_count > 0:
+                logger.warning("Rate limit reached. Waiting 60 seconds before retrying...")
+                time.sleep(60)
+                # Retry once
+                return self.text_to_image(prompt, retry_count=retry_count-1)
+            else:
+                raise oe
+
         except Exception as e:
             raise e
 
