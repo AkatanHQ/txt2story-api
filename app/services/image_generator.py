@@ -64,7 +64,7 @@ class ImageGenerator:
             logger.error(f"Error moderating content: {e}", exc_info=True)
             raise RuntimeError("Error in content moderation")
 
-    def text_to_image(self, prompt, retry_count=1):
+    def text_to_image(self, prompt, retry_count=3):
         """
         Attempts to generate an image from text. If a rate limit error occurs,
         wait 60 seconds and retry once more.
