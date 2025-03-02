@@ -26,7 +26,7 @@ try:
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": "What's in this image?"},
+                    {"type": "text", "text": "Describe the person's appearance, including general details such as hair, clothing, face-shape, accesoires, and facial expression, without making assumptions about their identity. Always include the color, including skin-color"},
                     {
                         "type": "image_url",
                         "image_url": {
@@ -40,7 +40,7 @@ try:
     )
 
     print(response.choices[0])
-
+    result = response.choices[0]
     print("\n=== Image Analysis Result ===")
     print(result)
 except Exception as e:
