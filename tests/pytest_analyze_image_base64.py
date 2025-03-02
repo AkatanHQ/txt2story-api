@@ -37,9 +37,9 @@ def test_analyze_image_base64(payload):
     json_response = response.json()
     print("\n🔍 Response JSON:", response.json())
 
-    # Check if the response contains "analysis_result"
-    assert "analysis_result" in json_response, "Response does not contain 'analysis_result'"
-    assert isinstance(json_response["analysis_result"], str), "analysis_result should be a string"
+    # Check if the response contains "detailed_appearance"
+    assert "detailed_appearance" in json_response, "Response does not contain 'detailed_appearance'"
+    assert isinstance(json_response["detailed_appearance"], str), "detailed_appearance should be a string"
 
     print("✅ Test passed! Base64 image was analyzed successfully.")
 

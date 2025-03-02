@@ -60,7 +60,7 @@ async def analyze_image_base64(request: Base64ImageRequest):
         result = analyzer.analyze_image_base64(base64_image)
 
         logger.info("Successfully analyzed base64 image")
-        return {"analysis_result": result}
+        return {"detailed_appearance": result}
 
     except Exception as e:
         logger.error(f"Error analyzing base64 image: {e}", exc_info=True)
