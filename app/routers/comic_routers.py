@@ -39,7 +39,7 @@ async def analyze_image_url(request: ImageUrlRequest):
         result = analyzer.analyze_image_url(str(request.image_url))
 
         logger.info(f"Successfully analyzed image from URL: {request.image_url}")
-        return {"analysis_result": result}
+        return {"detailed_appearance": result}
 
     except Exception as e:
         logger.error(f"Error analyzing image from URL: {e}", exc_info=True)

@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 client = TestClient(app)
 
 @pytest.mark.parametrize("payload", [{}])
-def test_analyze_image_base64():
+def test_analyze_image_base64(payload):
     """
     Test case for /analyze-image-base64 endpoint.
     Ensures that a valid base64 image returns a proper response.
