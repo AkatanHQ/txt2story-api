@@ -2,6 +2,7 @@ import sys
 import os
 from openai import OpenAI
 from dotenv import load_dotenv
+import base64
 
 load_dotenv()
 
@@ -17,7 +18,6 @@ analyzer = AnalyzeImage(provider="openai", vision_model="gpt-4o")
 image_url = "https://vancouvergold.ca/wp-content/uploads/2013/11/person2-500x500.jpg"  # Replace with a real image URL
 api_key = os.getenv("OPENAI_API_KEY")
 
-import base64
 
 # Convert image to Base64
 image_path = "tests/test_images/person1.webp"
@@ -38,7 +38,7 @@ try:
                     {
                         "type": "image_url",
                         "image_url": {
-                            "url": f"data:image/webp;base64,{base64_image}"  # Adjust MIME type if needed (webp, jpeg, png)
+                            "url": f"data:image/webp;base64,{base64_image}"  
                         },
                     },
                 ],
