@@ -2,11 +2,10 @@
 
 from fastapi import APIRouter, HTTPException
 from openai import BadRequestError, OpenAIError
-from pydantic import BaseModel, HttpUrl
 from app.services.story_json_builder import StoryJsonBuilder
 from app.services.image_generator import ImageGenerator
 from app.utils.logger import logger
-from app.schemas.comic_schemas import EntityRequest, ComicRequest, ImageRequest
+from app.schemas.comic_schemas import EntityRequest, ComicRequest, ImageRequest, ImageUrlRequest, Base64ImageRequest
 from app.utils.enums import StyleDescription
 import json
 import base64
@@ -14,15 +13,7 @@ from app.services.analyze_image import AnalyzeImage
 
 router = APIRouter()
 
-class Base64ImageRequest(BaseModel):
-    provider: str = "openai"
-    vision_model: str = "gpt-4o"
-    base64_image: str  # Base64-encoded image string
-    
-class ImageUrlRequest(BaseModel):
-    provider: str = "openai"
-    vision_model: str = "gpt-4o"
-    image_url: HttpUrl  # Ensures valid URL format
+
 
 @router.post("/analyze-image-url")
 async def analyze_image_url(request: ImageUrlRequest):
@@ -51,13 +42,13 @@ async def analyze_image_base64(request: Base64ImageRequest):
         logger.info("Received request to analyze base64 image")
 
         # Decode base64 image directly into bytes
-        base64_image = request.base64_image
+        image_base64 = request.image_base64
 
         # Initialize the analyzer
         analyzer = AnalyzeImage(provider=request.provider, vision_model=request.vision_model)
 
         # Analyze the image in memory
-        result = analyzer.analyze_image_base64(base64_image)
+        result = analyzer.analyze_image_base64(image_base64)
 
         logger.info("Successfully analyzed base64 image")
         return {"detailed_appearance": result}

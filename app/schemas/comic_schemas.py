@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, HttpUrl
 from typing import List, Dict, Optional
 from app.utils.enums import StyleOptions
 
@@ -25,3 +25,13 @@ class ComicRequest(BaseModel):
     language: str
     number_of_pages: int
     entities: List[EntityRequest]
+
+class Base64ImageRequest(BaseModel):
+    provider: str = "openai"
+    vision_model: str = "gpt-4o"
+    image_base64: str  # Base64-encoded image string
+    
+class ImageUrlRequest(BaseModel):
+    provider: str = "openai"
+    vision_model: str = "gpt-4o"
+    image_url: HttpUrl  # Ensures valid URL format

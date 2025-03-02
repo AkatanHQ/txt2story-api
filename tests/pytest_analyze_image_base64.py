@@ -20,13 +20,13 @@ def test_analyze_image_base64(payload):
     image_path = "tests/test_images/person1.webp"
 
     with open(image_path, "rb") as image_file:
-        base64_image = base64.b64encode(image_file.read()).decode("utf-8")
+        image_base64 = base64.b64encode(image_file.read()).decode("utf-8")
 
     # Test payload
     test_payload = {
         "provider": "openai",
         "vision_model": "gpt-4o",
-        "base64_image": base64_image
+        "image_base64": image_base64
     }
     
     response = client.post("/analyze-image-base64", json=test_payload)

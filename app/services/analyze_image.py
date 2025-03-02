@@ -27,7 +27,7 @@ class AnalyzeImage:
             logger.error(f"Failed to initialize AnalyzeImage: {e}", exc_info=True)
             raise RuntimeError("Initialization error in AnalyzeImage")
     
-    def analyze_image_base64(self, base64_image: str) -> str:
+    def analyze_image_base64(self, image_base64: str) -> str:
         try:
             logger.info("Analyzing base64 image using GPT-4 vision") 
             
@@ -41,7 +41,7 @@ class AnalyzeImage:
                             {
                                 "type": "image_url",
                                 "image_url": {
-                                    "url": f"data:image/webp;base64,{base64_image}"  
+                                    "url": f"data:image/webp;base64,{image_base64}"  
                                 },
                             },
                         ],
@@ -65,7 +65,7 @@ class AnalyzeImage:
         try:
             logger.info("Analyzing local image using GPT-4 vision")
             with open(image_path, "rb") as image_file:
-                base64_image = base64.b64encode(image_file.read()).decode("utf-8")
+                image_base64 = base64.b64encode(image_file.read()).decode("utf-8")
 
             response = self.client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -77,7 +77,7 @@ class AnalyzeImage:
                             {
                                 "type": "image_url",
                                 "image_url": {
-                                    "url": f"data:image/webp;base64,{base64_image}"  
+                                    "url": f"data:image/webp;base64,{image_base64}"  
                                 },
                             },
                         ],
