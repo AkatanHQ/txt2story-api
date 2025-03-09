@@ -9,7 +9,6 @@ We’re excited that you’re interested in contributing! By helping out, you’
 - [Ways to Contribute](#ways-to-contribute)
 - [Getting Started](#getting-started)
 - [Pull Requests](#pull-requests)
-- [Coding Standards](#coding-standards)
 - [Testing](#testing)
 - [Issues and Roadmap](#issues-and-roadmap)
 - [License](#license)
@@ -18,6 +17,13 @@ We’re excited that you’re interested in contributing! By helping out, you’
 <!-- ## Code of Conduct
 
 This project and everyone participating in it is governed by the [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you agree to uphold its terms. -->
+
+## Updates/Notes
+- [09/03/2025] Best way to contribute is by adding support for additional AI models beyond OpenAI/Azure. AI Story Book will use the best implementation in it's live version, or maybe have an option-menu to select between the several options.
+- [09/03/2025] - Our current priority is improving image consistency in AI-generated stories, including personalized entities such as character faces. While we haven't fully optimized this repository/server yet, we plan to refine it to ensure high-quality, consistent storytelling.
+
+- [09/03/2025] NOTE: If you're a company or developer with a high-quality image generation model, we'd love to hear from you! Feel free to reach out—we're open to testing and integrating better solutions.
+
 
 ## Ways to Contribute
 
@@ -64,16 +70,6 @@ and visit http://127.0.0.1:8000/docs to check that everything works.
    - A maintainer will review your code, suggest changes if needed.
    - When approved, your PR will be merged.
 
-
-
-## Coding Standards
-
-- **Formatting**: We suggest using [Black](https://github.com/psf/black). You can run:
-  ```bash
-  black .
-  ```
-- **Imports**: Sort them logically, typically with [isort](https://github.com/PyCQA/isort).
-- **Docstrings**: Use reStructuredText or Google-style docstrings consistently.
 
 
 
