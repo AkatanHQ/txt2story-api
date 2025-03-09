@@ -1,6 +1,3 @@
-Here's the updated README with the "Usage in Detail" section made foldable and collapsed by default using HTML and Markdown. 
-
-```markdown
 # AI Story Book: The Txt2Story API
 
 The **AI Story Book** project automatically generates personalized storybooks, complete with AI-generated text and images. This repository contains the backend APIs written in Python (FastAPI) that power [AIStorybook.app](https://AIStorybook.app).
@@ -248,6 +245,3 @@ If you discover any security issues, please review our [SECURITY.md](SECURITY.md
 - Or open an issue on [GitHub](https://github.com/AkatanHQ/txt2story-api)
 
 [AIStorybook.app](https://AIStorybook.app) is maintained by Akatan. Please join our community, file issues, and help us improve this project!
-```
-
-Now, the "Usage in Detail" section is collapsible by default, making the README more compact. Let me know if you need any refinements! 🚀
