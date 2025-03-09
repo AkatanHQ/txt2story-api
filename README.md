@@ -54,7 +54,7 @@ Check out the **live version** at [AIStorybook.app](https://AIStorybook.app).
 
 1. **Clone** the repository:
    ```bash
-   git clone https://github.com/RedAndWhiteApps/txt2story-api.git
+   git clone https://github.com/AkatanHQ/txt2story-api.git
    cd txt2story-api
    ```
 2. **Set up a virtual environment** (optional but recommended):
@@ -147,6 +147,6 @@ If you discover any security issues, please review our [SECURITY.md](SECURITY.md
 
 **Project Maintainers**:  
 - AI Story Book (<hello@aistorybook.app>)  
-- Or open an issue on [GitHub](https://github.com/RedAndWhiteApps/txt2story-api)
+- Or open an issue on [GitHub](https://github.com/AkatanHQ/txt2story-api)
 
 [AIStorybook.app](https://AIStorybook.app) is maintained by RedApps. Please join our community, file issues, and help us improve this project!
