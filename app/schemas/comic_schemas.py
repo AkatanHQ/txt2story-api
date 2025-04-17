@@ -22,7 +22,6 @@ class ImageRequest(BaseModel):
 class ComicRequest(BaseModel):
     user_id: int
     scenario: str
-    language: str
     number_of_pages: int
     entities: List[EntityRequest]
 

@@ -18,13 +18,13 @@ class TextGenerator:
             logger.error(f"Error initializing TextGenerator: {e}", exc_info=True)
             raise RuntimeError("Failed to initialize TextGenerator")
 
-    def generate_scenes(self, entities, language, number_of_pages, scenario):
+    def generate_scenes(self, entities, number_of_pages, scenario):
         try:
             logger.info("Generating story text")
-            logger.debug(f"Input parameters: entities={entities}, language={language}, number_of_pages={number_of_pages}, scenario={scenario}")
+            logger.debug(f"Input parameters: entities={entities}, number_of_pages={number_of_pages}, scenario={scenario}")
 
             formatted_prompt = f"""
-            Write a story in {language} with exactly {number_of_pages} pages. The story should feature the following entities and follow the given storyline. The story structure should include:
+            Write a story with exactly {number_of_pages} pages. The language is dependent on the scenario description. The story should feature the following entities and follow the given storyline. The story structure should include:
 
             1. **Introduction**: Set the scene, introduce the main entities, and describe the setting.
             2. **Rising Action**: Present the main challenge or quest the entities face.

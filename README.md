@@ -87,7 +87,7 @@ Check out the **live version** at [AIStorybook.app](https://AIStorybook.app).
 
 - **Generate Story Text**  
   Endpoint: `POST /generate-story-text`  
-  Payload: JSON with scenario, language, entity definitions, etc.  
+  Payload: JSON with scenario, entity definitions, etc.  
   This returns a JSON structure containing the story scenes and metadata.  
 
 - **Generate Images**  
@@ -120,7 +120,6 @@ Check out the **live version** at [AIStorybook.app](https://AIStorybook.app).
       "description": "A curious young girl with long brown hair and a red dress."
     }
   ],
-  "language": "English",
   "number_of_pages": 5,
   "scenario": "Alice finds a magical portal in her backyard."
 }
