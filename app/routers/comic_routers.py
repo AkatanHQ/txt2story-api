@@ -13,21 +13,6 @@ from app.services.analyze_image import AnalyzeImage
 
 router = APIRouter()
 
-@router.post("/chat-story")
-async def chat_story(request: dict):
-    try:
-        from app.services.story_chat_manager import StoryChatManager
-        chat_manager = StoryChatManager()
-        user_input = request.get("message")
-
-        response = chat_manager.process_message(user_input)
-        return response
-
-    except Exception as e:
-        logger.error(f"Error in story chat: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Story chat error")
-
-
 @router.post("/analyze-image-url")
 async def analyze_image_url(request: ImageUrlRequest):
     """
@@ -83,7 +68,6 @@ async def generate_story_text(request: ComicRequest):
         # Generate the story
         story_builder.generate_story(
             entities=request.entities,
-            number_of_pages=request.number_of_pages,
             scenario=request.scenario
         )
 

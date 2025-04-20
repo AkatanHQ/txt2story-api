@@ -9,7 +9,6 @@ class EntityRequest(BaseModel):
     detailed_appearance: Optional[str] = None
     description: Optional[str] = None
     dreambooth_url: Optional[str] = None
-    dreambooth: bool = False
 
 class ImageRequest(BaseModel):
     provider: str = Field(..., description="The provider to use (e.g., 'openai' or 'azure').")
@@ -22,7 +21,6 @@ class ImageRequest(BaseModel):
 class ComicRequest(BaseModel):
     user_id: int
     scenario: str
-    number_of_pages: int
     entities: List[EntityRequest]
 
 class Base64ImageRequest(BaseModel):

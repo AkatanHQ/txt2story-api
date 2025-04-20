@@ -18,13 +18,13 @@ class TextGenerator:
             logger.error(f"Error initializing TextGenerator: {e}", exc_info=True)
             raise RuntimeError("Failed to initialize TextGenerator")
 
-    def generate_scenes(self, entities, number_of_pages, scenario):
+    def generate_scenes(self, entities, scenario):
         try:
             logger.info("Generating story text")
-            logger.debug(f"Input parameters: entities={entities}, number_of_pages={number_of_pages}, scenario={scenario}")
+            logger.debug(f"Input parameters: entities={entities}, scenario={scenario}")
 
             formatted_prompt = f"""
-            Write a story with exactly {number_of_pages} pages. The language is dependent on the scenario description. The story should feature the following entities and follow the given storyline. The story structure should include:
+            Write a story with exactly 5 pages, unless it's mentioned in the scenario. Then exactly with that amount of pages. The language is dependent on the scenario description. The story should feature the following entities and follow the given storyline. The story structure should include:
 
             1. **Introduction**: Set the scene, introduce the main entities, and describe the setting.
             2. **Rising Action**: Present the main challenge or quest the entities face.
@@ -42,7 +42,6 @@ class TextGenerator:
             - text of story of each scene should be less than 300 chars.
             - URLS are both empty strings.
             - The prompt is a description of an image accompanying the story-text of the index. It should use the entities name very clearly when showing them in the image. Make the scenes very different from each other.
-            - Exactly {number_of_pages} scenes.
             """
 
             completion = self.client.chat.completions.create(

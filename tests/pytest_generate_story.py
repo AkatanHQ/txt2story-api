@@ -18,7 +18,6 @@ def test_generate_story_text_logging_only(client):
     test_payload = {
         "user_id": 123,
         "scenario": "A thrilling space adventure",
-        "number_of_pages": 3,
         "entities": [
             {
                 "id": 1,
