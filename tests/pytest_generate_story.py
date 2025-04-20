@@ -16,8 +16,7 @@ def test_generate_story_text_logging_only(client):
     Test the /generate-story-text endpoint but only log the response.
     """
     test_payload = {
-        "user_id": 123,
-        "scenario": "A thrilling space adventure",
+        "prompt": "A thrilling space adventure",
         "entities": [
             {
                 "id": 1,

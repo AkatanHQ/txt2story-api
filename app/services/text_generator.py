@@ -18,13 +18,13 @@ class TextGenerator:
             logger.error(f"Error initializing TextGenerator: {e}", exc_info=True)
             raise RuntimeError("Failed to initialize TextGenerator")
 
-    def generate_scenes(self, entities, scenario):
+    def generate_scenes(self, entities, prompt):
         try:
             logger.info("Generating story text")
-            logger.debug(f"Input parameters: entities={entities}, scenario={scenario}")
+            logger.debug(f"Input parameters: entities={entities}, prompt={prompt}")
 
             formatted_prompt = f"""
-            Write a story with exactly 5 pages, unless it's mentioned in the scenario. Then exactly with that amount of pages. The language is dependent on the scenario description. The story should feature the following entities and follow the given storyline. The story structure should include:
+            Write a story with exactly 5 pages, unless it's mentioned in the prompt. Then exactly with that amount of pages. The language is dependent on the prompt description. The story should feature the following entities and follow the given storyline. The story structure should include:
 
             1. **Introduction**: Set the scene, introduce the main entities, and describe the setting.
             2. **Rising Action**: Present the main challenge or quest the entities face.
@@ -34,8 +34,8 @@ class TextGenerator:
             **entities:**
             {entities}
 
-            **Storyline scenario:**
-            {scenario}
+            **Storyline prompt:**
+            {prompt}
 
             - Structure the story in a series of narrative scenes, where each scene represents an important moment in the story.
             - Each scene should include an index, starting with 0, a concise text that captures the moment within this structure, and an image object that contains the image prompt, a public URL, and a signed URL for the image.

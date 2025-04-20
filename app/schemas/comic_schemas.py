@@ -19,8 +19,7 @@ class ImageRequest(BaseModel):
     model_resolution: str = "1024x1024"
 
 class ComicRequest(BaseModel):
-    user_id: int
-    scenario: str
+    prompt: str
     entities: List[EntityRequest]
 
 class Base64ImageRequest(BaseModel):

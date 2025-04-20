@@ -26,8 +26,8 @@ def summarize_state(state):
     summary = []
     if state.get("title"):
         summary.append(f"Title: {state['title']}")
-    if state.get("scenario"):
-        summary.append(f"Scenario: {state['scenario']}")
+    if state.get("prompt"):
+        summary.append(f"prompt: {state['prompt']}")
     if state.get("entities"):
         summary.append(f"Entities: {len(state['entities'])}")
     if state.get("scenes"):

@@ -10,18 +10,18 @@ class StoryJsonBuilder:
             logger.error(f"Failed to initialize StoryJsonBuilder: {e}", exc_info=True)
             raise RuntimeError("Initialization error in StoryJsonBuilder")
 
-    def generate_story(self, entities, scenario):
+    def generate_story(self, entities, prompt):
         try:
             logger.info("Generating story")
-            logger.debug(f"Story parameters: entities={entities}, scenario={scenario}")
+            logger.debug(f"Story parameters: entities={entities}, prompt={prompt}")
 
             self.entities = entities
-            self.scenario = scenario
+            self.prompt = prompt
 
             # Step 1: Generate story text
             self.scenes = self.generator.generate_scenes(
                 entities=self.entities,
-                scenario=self.scenario
+                prompt=self.prompt
             )
             logger.info("Story text generated successfully")
 

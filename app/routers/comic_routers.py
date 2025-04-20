@@ -68,7 +68,7 @@ async def generate_story_text(request: ComicRequest):
         # Generate the story
         story_builder.generate_story(
             entities=request.entities,
-            scenario=request.scenario
+            prompt=request.prompt
         )
 
         logger.info("Comic generation completed successfully")

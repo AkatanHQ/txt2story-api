@@ -95,7 +95,7 @@ class ImageGenerator:
         except BadRequestError as bre:
             # Check if the error message indicates a rate limit.
             # For AzureOpenAI, you might look at the content of the error to see if it's
-            # specifically a "Too many requests" or rate limit scenario.
+            # specifically a "Too many requests" or rate limit prompt.
             error_msg = str(bre)
             # Adjust the condition below to match how Azure/OpenAI returns rate-limit messages.
             if "rate limit" in error_msg.lower() and retry_count > 0:
