@@ -3,7 +3,6 @@ from typing import List, Dict, Optional
 from app.utils.enums import StyleOptions
 
 class EntityRequest(BaseModel):
-    id: Optional[int] = None
     name: Optional[str] = None
     appearance: Optional[str] = None
     detailed_appearance: Optional[str] = None
