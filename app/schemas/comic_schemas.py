@@ -2,12 +2,18 @@ from pydantic import BaseModel, Field, HttpUrl
 from typing import List, Dict, Optional
 from app.utils.enums import StyleOptions
 
+
 class EntityRequest(BaseModel):
     name: Optional[str] = None
     appearance: Optional[str] = None
     detailed_appearance: Optional[str] = None
     description: Optional[str] = None
     dreambooth_url: Optional[str] = None
+
+class ComicRequest(BaseModel):
+    prompt: str
+    entities: List[EntityRequest]
+
 
 class ImageRequest(BaseModel):
     provider: str = Field(..., description="The provider to use (e.g., 'openai' or 'azure').")
@@ -17,9 +23,7 @@ class ImageRequest(BaseModel):
     image_model: str = "dall-e-3"
     model_resolution: str = "1024x1024"
 
-class ComicRequest(BaseModel):
-    prompt: str
-    entities: List[EntityRequest]
+
 
 class Base64ImageRequest(BaseModel):
     provider: str = "openai"
