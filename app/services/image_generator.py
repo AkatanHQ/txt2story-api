@@ -41,105 +41,103 @@ class ImageGenerator:
     # ────────────────────────────────────────────────────────────────────────
     # Helpers
     # ────────────────────────────────────────────────────────────────────────
-    def _fetch_and_shrink(self, url: str) -> str:
-        """
-        Fetch an image and shrink it to base64 data-URI.
-        """
-        logger.info(f"🌐 Downloading reference image: {url}")
+    def _fetch_and_shrink(self, url: str) -> io.BytesIO:
         r = requests.get(url, timeout=20)
-        r.raise_for_status()
         img = Image.open(io.BytesIO(r.content))
-
-        original_size = img.size
         img.thumbnail((MAX_REF_DIM, MAX_REF_DIM))
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=JPEG_QUALITY, optimize=True)
-        b64 = base64.b64encode(buf.getvalue()).decode()
 
-        logger.info(f"🖼️  Reference image resized from {original_size} ➔ {img.size}, encoded base64 ({len(b64)} chars)")
-        return f"data:image/jpeg;base64,{b64}"
+        img_bytes = io.BytesIO()
+        img.save(img_bytes, format="JPEG", quality=JPEG_QUALITY)
+        img_bytes.seek(0)  # Very important!
 
-    def _moderate(self, text: str) -> bool:
-        if self.provider != "openai":
-            return False
-        logger.info("🛡️  Moderating prompt content via OpenAI moderation endpoint")
-        m = self.client.moderations.create(input=text)
-        flagged = m.results[0].flagged
-        if flagged:
-            logger.warning("⚠️  Prompt was flagged by OpenAI moderation")
-        else:
-            logger.info("✅ Prompt passed moderation check")
-        return flagged
+        return img_bytes
 
     # ────────────────────────────────────────────────────────────────────────
     # Public
     # ────────────────────────────────────────────────────────────────────────
-    def generate_image(self, prompt_json: str, entities: list[dict] | None = None) -> str:
-        """
-        Generate an image from prompt + optional references.
-        """
-        logger.info("🧱 Building final prompt for image generation")
-        if self._moderate(prompt_json):
-            raise ValueError("Prompt flagged by moderation")
+    def generate_image(self, prompt: str, entities: list[dict] | None = None) -> str:
+        logger.info("🧱 Building final prompt for image generation (manual, image[] array)")
 
-        data_uris = []
+        ref_images = []
+
         if entities:
             for ent in entities:
                 url = ent.get("dreambooth_url")
                 if url:
                     try:
-                        encoded = self._fetch_and_shrink(url)
-                        data_uris.append(encoded)
+                        img_bytes = self._fetch_and_shrink(url)
+                        ref_images.append(img_bytes)
                     except Exception as exc:
-                        logger.warning(f"⚠️  Skipping invalid reference: {exc}")
-
-        # Try to add references under size limit
-        prompt = prompt_json
-        if data_uris:
-            ref_block = "\n\nReference images:\n" + "\n".join(data_uris)
-            logger.debug(f"🧩 Adding {len(data_uris)} base64 reference(s)")
-            if len(prompt) + len(ref_block) <= MAX_PROMPT_CHARS:
-                prompt += ref_block
-            else:
-                logger.warning("⚠️  Base64 refs would exceed 32k → falling back to plain URLs")
-                url_block = "\n\nReference image URLs:\n" + "\n".join(
-                    [e.get("dreambooth_url") for e in entities if e.get("dreambooth_url")]
-                )
-                if len(prompt) + len(url_block) <= MAX_PROMPT_CHARS:
-                    prompt += url_block
-                    logger.info("📎 Appended plain URLs instead of base64")
-                else:
-                    logger.error("🚫 Prompt + references still too large even with plain URLs")
-                    raise RuntimeError("Prompt would exceed 32 000 chars even without base64 refs")
-
-        logger.info(f"📝 Final prompt length: {len(prompt)} chars")
-        logger.info(f"🎯 Requesting image generation (size={self.size}, quality={self.quality})")
+                        logger.warning(f"⚠️  Skipping invalid reference image: {exc}")
 
         try:
-            resp = self.client.images.generate(
-                model   = self.img_model,
-                prompt  = prompt,
-                n       = 1,
-                size    = self.size,
-                quality = self.quality,
-            )
-            image_b64 = (
-                resp.data[0].b64_json
-                if self.provider == "openai"
-                else json.loads(resp.model_dump_json())["data"][0]["b64_json"]
-            )
+            if ref_images:
+                logger.info(f"✏️  Using {len(ref_images)} reference image(s) ➔ manually calling OpenAI API")
 
-            if not image_b64:
-                logger.error("🚫 No image base64 returned by OpenAI")
-                raise RuntimeError("No image base64 returned")
+                url = "https://api.openai.com/v1/images/edits"
+                headers = {
+                    "Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}",
+                }
 
-            logger.info("✅ Image generated successfully (base64)")
-            return image_b64
+                files = []
+                for idx, img_bytes in enumerate(ref_images):
+                    files.append((
+                        "image[]",  # important: field name must be image[]
+                        (f"image{idx}.jpg", img_bytes, "image/jpeg")
+                    ))
 
+                data = {
+                    "prompt": prompt,
+                    "model": self.img_model,
+                    "n": 1,
+                    "size": self.size,
+                    "quality": self.quality,
+                }
+
+                response = requests.post(url, headers=headers, data=data, files=files)
+                response.raise_for_status()
+
+                resp_data = response.json()
+
+                image_b64 = resp_data["data"][0]["b64_json"]
+
+                if not image_b64:
+                    logger.error("🚫 No image base64 returned by OpenAI")
+                    raise RuntimeError("No image base64 returned")
+
+                logger.info("✅ Image generated successfully (base64)")
+                return image_b64
+
+            else:
+                logger.info("🖌️  No references ➔ calling images.generate() with OpenAI SDK")
+                resp = self.client.images.generate(
+                    model=self.img_model,
+                    prompt=prompt,
+                    n=1,
+                    size=self.size,
+                    quality=self.quality,
+                )
+
+                image_b64 = (
+                    resp.data[0].b64_json
+                    if self.provider == "openai"
+                    else json.loads(resp.model_dump_json())["data"][0]["b64_json"]
+                )
+
+                if not image_b64:
+                    logger.error("🚫 No image base64 returned by OpenAI")
+                    raise RuntimeError("No image base64 returned")
+
+                logger.info("✅ Image generated successfully (base64)")
+                return image_b64
+
+        except requests.exceptions.RequestException as err:
+            logger.error(f"🔥 OpenAI HTTP Request Error during image generation: {err}")
+            raise
         except (BadRequestError, OpenAIError) as err:
             if "rate limit" in str(err).lower():
                 logger.warning("🐢 Rate-limited, retrying after 60 seconds")
                 time.sleep(60)
-                return self.generate_image(prompt_json, entities)
-            logger.error(f"🔥 OpenAI Error during image generation: {err}")
+                return self.generate_image(prompt, entities)
+            logger.error(f"🔥 OpenAI SDK Error during image generation: {err}")
             raise

@@ -99,20 +99,9 @@ async def generate_image(request: ImageRequest):
             size=request.size,
             quality=request.quality,
         )
-
-        prompt_payload = {
-            "image_prompt": request.image_prompt,
-            "entities": [e.model_dump() for e in request.entities],
-        }
-        prompt_json = json.dumps(prompt_payload)
-
-        logger.debug(f"Prompt JSON: {prompt_json}")
-
-        # if img_gen.moderate_content(prompt_json):
-        #     raise HTTPException(400, "Prompt violates OpenAI moderation")
-
+        
         image_b64 = img_gen.generate_image(
-            prompt_json,
+            request.image_prompt,
             entities=[e.model_dump() for e in request.entities],
         )
 
