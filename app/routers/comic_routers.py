@@ -86,70 +86,40 @@ async def generate_story_text(request: ComicRequest):
 
 @router.post("/generate-image")
 async def generate_image(request: ImageRequest):
+    """
+    Generate an image with GPT-Image-1 (OpenAI or Azure). Supports reference
+    pictures stored in `entities[*].dreambooth_url`.
+    """
     try:
         logger.info("Received request to generate image")
 
-        image_generator = ImageGenerator(
+        img_gen = ImageGenerator(
             provider=request.provider,
             img_model=request.image_model,
-            model_resolution=request.model_resolution
+            size=request.size,
+            quality=request.quality,
         )
 
-        # Convert the style to a description
-        try:
-            style_description = request.style.value
-        except KeyError:
-            logger.error(f"Invalid style: {request.style}")
-            raise HTTPException(
-                status_code=400,
-                detail="The selected style is not supported. Please choose a valid style."
-            )
-
-        # Prepare the JSON prompt
-        prompt = json.dumps({
+        prompt_payload = {
             "image_prompt": request.image_prompt,
-            "entities": [entity.dict() for entity in request.entities],
-            "style": style_description,
-        })
+            "entities": [e.model_dump() for e in request.entities],
+        }
+        prompt_json = json.dumps(prompt_payload)
 
-        logger.debug(f"Final prompt: {prompt}")
+        logger.debug(f"Prompt JSON: {prompt_json}")
 
-        # Because we only moderate if provider == "openai", call moderate_content:
-        if image_generator.moderate_content(prompt):
-            logger.warning("Prompt flagged by the OpenAI moderation.")
-            raise HTTPException(
-                status_code=400,
-                detail="The prompt contains inappropriate or prohibited content. Please modify and try again."
-            )
+        # if img_gen.moderate_content(prompt_json):
+        #     raise HTTPException(400, "Prompt violates OpenAI moderation")
 
-        image_url = image_generator.generate_image(prompt)
-        logger.info(f"Image generation completed with provider {request.provider}")
-        return image_url
-
-    except BadRequestError as ve:
-        # This includes content policy violations and other user-facing errors
-        logger.warning(f"Content policy violation or validation error: {ve}")
-        raise HTTPException(
-            status_code=400,
-            detail=str("Content policy violation or validation error")
-        )   
-    except ValueError as ve:
-        # This includes content policy violations and other user-facing errors
-        logger.warning(f"Content policy violation or validation error: {ve}")
-        raise HTTPException(
-            status_code=400,
-            detail=str("Content policy violation or validation error")
-        )
-    except RuntimeError as re:
-        logger.error(f"Unexpected runtime error generating image: {re}", exc_info=False)
-        raise HTTPException(
-            status_code=500,
-            detail="An unexpected error occurred while generating the image. Please try again later."
+        image_b64 = img_gen.generate_image(
+            prompt_json,
+            entities=[e.model_dump() for e in request.entities],
         )
 
-    except Exception as e:
-        logger.error(f"Unexpected error generating image: {e}", exc_info=False)
-        raise HTTPException(
-            status_code=500,
-            detail="An unexpected error occurred. Please try again later."
-        )
+        return {"image_b64": str(image_b64)}
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Unexpected server error", exc_info=True)
+        raise HTTPException(500, detail="Image generation failed") from exc
