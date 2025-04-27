@@ -56,10 +56,7 @@ class ImageGenerator:
     # Public
     # ────────────────────────────────────────────────────────────────────────
     def generate_image(self, prompt: str, entities: list[dict] | None = None) -> str:
-        """
-        Generate an image with optional reference images (manual OpenAI HTTP request version, memory-only).
-        """
-        logger.info("🧱 Building final prompt for image generation (manual request mode, in-memory)")
+        logger.info("🧱 Building final prompt for image generation (manual, image[] array)")
 
         ref_images = []
 
@@ -68,7 +65,7 @@ class ImageGenerator:
                 url = ent.get("dreambooth_url")
                 if url:
                     try:
-                        img_bytes = self._fetch_and_shrink(url)  # Get BytesIO
+                        img_bytes = self._fetch_and_shrink(url)
                         ref_images.append(img_bytes)
                     except Exception as exc:
                         logger.warning(f"⚠️  Skipping invalid reference image: {exc}")
@@ -77,14 +74,17 @@ class ImageGenerator:
             if ref_images:
                 logger.info(f"✏️  Using {len(ref_images)} reference image(s) ➔ manually calling OpenAI API")
 
-                url = "https://api.openai.com/v1/images/edit"
+                url = "https://api.openai.com/v1/images/edits"
                 headers = {
                     "Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}",
                 }
 
-                files = {}
+                files = []
                 for idx, img_bytes in enumerate(ref_images):
-                    files[f"image_{idx}"] = (f"image{idx}.jpg", img_bytes, "image/jpeg")
+                    files.append((
+                        "image[]",  # important: field name must be image[]
+                        (f"image{idx}.jpg", img_bytes, "image/jpeg")
+                    ))
 
                 data = {
                     "prompt": prompt,
@@ -141,5 +141,3 @@ class ImageGenerator:
                 return self.generate_image(prompt, entities)
             logger.error(f"🔥 OpenAI SDK Error during image generation: {err}")
             raise
-
-
