@@ -1,57 +1,52 @@
 #!/usr/bin/env python3
 """
-Interactive StoryGPT console client
------------------------------------
-• Requires `requests`  (pip install requests)
-• Make sure your FastAPI backend is already running, e.g.:
-      uvicorn main:app --reload
-• Press Ctrl‑C (KeyboardInterrupt) to quit.
+Simple console client for the StoryGPT FastAPI backend.
+Run the server first:
+
+    uvicorn main:app --reload
+
+Then start this client:
+
+    python cli_test.py
 """
-
 import json
-import requests
+import requests   # pip install requests
 
-BASE_URL = "http://127.0.0.1:8000"   # change if the server lives elsewhere
-CONV_ID  = "demo"                    # any stable ID you like
+API_URL = "http://localhost:8000/chat"
 
+def send(user_input: str) -> dict:
+    """POST user_input to /chat and return the parsed JSON."""
+    resp = requests.post(API_URL, json={"user_input": user_input}, timeout=30)
+    resp.raise_for_status()
+    return resp.json()
 
-def call_chat(text: str) -> dict:
-    """POST /chat and return the parsed JSON."""
-    r = requests.post(
-        f"{BASE_URL}/chat",
-        json={
-            "conversation_id": CONV_ID,
-            "user_input": text,
-        },
-        timeout=60,
-    )
-    r.raise_for_status()
-    return r.json()
-
+def pretty(d: dict) -> str:
+    """Nicely format the response for console display."""
+    mode = d["mode"]
+    out = [f"\n[MODE: {mode}]"]
+    if d.get("assistant_output"):
+        out.append(f"Assistant: {d['assistant_output']}")
+    if d.get("story"):
+        story = d["story"]
+        out.append(f"\nStory prompt → {story['prompt']}")
+        for page in story["pages"]:
+            out.append(f"  • page {page['index']}: {page['text']}")
+    return "\n".join(out)
 
 def main() -> None:
-    print("StoryGPT console – type your prompt (Ctrl‑C to exit)\n")
-    try:
-        while True:
-            # read user input
-            try:
-                user_text = input("> ").strip()
-            except EOFError:      # Ctrl‑D → graceful exit
-                break
-            if not user_text:
-                continue
-
-            # call backend and pretty‑print result
-            try:
-                resp = call_chat(user_text)
-                print(json.dumps(resp, indent=2, ensure_ascii=False))
-            except requests.exceptions.RequestException as e:
-                print(f"[HTTP error] {e}")
-    except KeyboardInterrupt:
-        pass             # fall through to final message
-    finally:
-        print("\nBye!  👋")
-
+    print("🎬  StoryGPT console client – type 'quit' to exit")
+    while True:
+        try:
+            msg = input("\nYou: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            break
+        if msg.lower() in {"quit", "exit"}:
+            break
+        try:
+            response_json = send(msg)
+            print(pretty(response_json))
+        except Exception as exc:
+            print(f"⚠️  Error: {exc}")
 
 if __name__ == "__main__":
     main()

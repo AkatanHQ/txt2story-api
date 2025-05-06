@@ -1,17 +1,19 @@
-"""StoryGPT Backend (main.py) – OpenAI ≥ 1.0 compatible
-----------------------------------------------------------------
-FastAPI backend for an interactive story‑telling chat, powered by
-OpenAI *function calling* (`tools=` API) for intent detection.
+"""StoryGPT Backend – FastAPI + OpenAI 1.4.1 function calling
+-----------------------------------------------------------------
+FastAPI backend for an interactive story‑telling chat. Uses OpenAI
+function‑calling tools to decide whether the user wants to continue
+chatting, edit a specific page, edit all pages, or update the story
+synopsis.
 
-Supported actions (tools):
-• `continue_chat`      – keep chatting with the user
-• `edit_text`          – edit the text of page N
-• `edit_image_prompt`  – edit the image prompt of page N
-• `edit_all`           – edit both text & image prompt of page N
-• `edit_story_prompt`  – update the overall story synopsis
-• `generate_image`     – create DALL·E images for page N
+Changes in v1.4.1 (2025‑05‑06):
+• **Robust JSON parsing** – Fixed stray ```json code‑fence lines appearing as pages.
+  ‑ `_parse_json_or_lines()` now strips triple‑backtick fences, isolates the JSON
+    array between the first `[` and last `]`, and retries parsing. Fallback line
+    split skips the lone `[` / `]` markers.
+• **Prompt tweak** – Added a "Do *NOT* wrap in code fences" reminder so the model
+  is less likely to output markdown blocks in the first place.
 
-Quick start:
+Run:
     pip install fastapi uvicorn pydantic openai python-dotenv
     export OPENAI_API_KEY="sk‑..."
     uvicorn main:app --reload
@@ -20,22 +22,36 @@ Quick start:
 from __future__ import annotations
 
 import json
+import logging
+import os
+import re
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from openai import OpenAI
 from pydantic import BaseModel
 
 # ────────────────────────────
-# ░░ OpenAI client ░░
+# ░░ Environment & logging ░░
 # ────────────────────────────
+load_dotenv()  # reads .env if present
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    level=LOG_LEVEL,
+)
+logger = logging.getLogger("storygpt")
+logger.info("Logging initialised at %s level", LOG_LEVEL)
+
 client = OpenAI()  # reads OPENAI_API_KEY from env or .env
 
 # ────────────────────────────
 # ░░ FastAPI app ░░
 # ────────────────────────────
-app = FastAPI(title="StoryGPT Backend", version="1.0.0")
+app = FastAPI(title="StoryGPT Backend", version="1.4.1")
 
 # ────────────────────────────
 # ░░ Data models ░░
@@ -43,27 +59,22 @@ app = FastAPI(title="StoryGPT Backend", version="1.0.0")
 class Mode(str, Enum):
     CONTINUE_CHAT = "continue_chat"
     EDIT_TEXT = "edit_text"
-    EDIT_IMAGE_PROMPT = "edit_image_prompt"
     EDIT_ALL = "edit_all"
     EDIT_STORY_PROMPT = "edit_story_prompt"
-    GENERATE_IMAGE = "generate_image"
 
 
-class StoryPage(BaseModel):
+class StoryText(BaseModel):
     index: int
     text: str = ""
-    image_prompt: Optional[str] = None
 
 
 class Story(BaseModel):
     prompt: str = ""
-    pages: List[StoryPage] = []
+    pages: List[StoryText] = []
 
 
 class ChatRequest(BaseModel):
-    conversation_id: str
     user_input: str
-    story_id: Optional[str] = None  # default: same as conversation
 
 
 class ChatResponse(BaseModel):
@@ -74,222 +85,257 @@ class ChatResponse(BaseModel):
 
 
 # ────────────────────────────
-# ░░ In‑memory stores ░░   (swap for DB/Redis later)
+# ░░ In‑memory story & chat state ░░
 # ────────────────────────────
-messages: Dict[str, List[Dict[str, str]]] = {}
-stories: Dict[str, Story] = {}
+story_state = Story(
+    prompt="An epic tale begins.",
+    pages=[StoryText(index=0, text="Once upon a time …")],
+)
+
+# Keep the last N user/assistant messages to provide context.
+MAX_HISTORY = 20
+MESSAGE_HISTORY: List[dict] = []  # excludes the system prompt
 
 # ────────────────────────────
-# ░░ Function / tool schema ░░
+# ░░ OpenAI tool definitions ░░
 # ────────────────────────────
-FUNCTION_DEFS = [
+TOOLS = [
     {
-        "name": "continue_chat",
-        "description": "Continue the chat conversation with the user.",
-        "parameters": {"type": "object", "properties": {}},
-    },
-    {
-        "name": "edit_text",
-        "description": "Edit the text of a single story page.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "page": {"type": "integer", "description": "Zero‑based page index."},
-                "new_text": {"type": "string", "description": "Replacement page text."},
-            },
-            "required": ["page", "new_text"],
+        "type": "function",
+        "function": {
+            "name": "continue_chat",
+            "description": "Keep chatting with the user.",
+            "parameters": {"type": "object", "properties": {}},
         },
     },
     {
-        "name": "edit_image_prompt",
-        "description": "Edit the image prompt of a single story page.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "page": {"type": "integer"},
-                "new_image_prompt": {"type": "string"},
-            },
-            "required": ["page", "new_image_prompt"],
-        },
-    },
-    {
-        "name": "edit_all",
-        "description": "Edit both text and image prompt of a single story page.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "page": {"type": "integer"},
-                "new_text": {"type": "string"},
-                "new_image_prompt": {"type": "string"},
-            },
-            "required": ["page", "new_text", "new_image_prompt"],
-        },
-    },
-    {
-        "name": "edit_story_prompt",
-        "description": "Edit the overall story prompt / synopsis.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "new_story_prompt": {"type": "string", "description": "New synopsis."},
-            },
-            "required": ["new_story_prompt"],
-        },
-    },
-    {
-        "name": "generate_image",
-        "description": "Generate new DALL·E image(s) for a story page.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "page": {"type": "integer"},
-                "n": {
-                    "type": "integer",
-                    "default": 1,
-                    "description": "Number of images to create (default 1)",
+        "type": "function",
+        "function": {
+            "name": "edit_text",
+            "description": "Edit the text of a single page by index.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "page": {
+                        "type": "integer",
+                        "description": "Zero‑based page index to edit.",
+                    },
+                    "new_text": {
+                        "type": "string",
+                        "description": "Replacement text (1‑2 sentences).",
+                    },
                 },
+                "required": ["page", "new_text"],
             },
-            "required": ["page"],
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "edit_all",
+            "description": "Replace every page with new text entries (same length).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "new_texts": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Array of new page texts in order (each 1‑2 sentences).",
+                    }
+                },
+                "required": ["new_texts"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "edit_story_prompt",
+            "description": "Update the overall story prompt/synopsis and regenerate the story start to match (if no instruction given: 5 pages, 1‑2 sentences each).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "new_prompt": {
+                        "type": "string",
+                        "description": "New story prompt replacing the old one.",
+                    }
+                },
+                "required": ["new_prompt"],
+            },
         },
     },
 ]
 
-TOOLS = [{"type": "function", "function": f} for f in FUNCTION_DEFS]
-FUNCTION_TO_MODE = {f["name"]: Mode(f["name"]) for f in FUNCTION_DEFS}
+SYSTEM_PROMPT = (
+    "You are StoryGPT, a cooperative story‑writing assistant. A user will either chat "
+    "casually or ask to modify the story. Decide which action fits best and respond as "
+    "a function call.\n\nActions:\n• continue_chat – respond normally\n• edit_text – update one page"\
+    "\n• edit_all – replace all pages\n• edit_story_prompt – change the synopsis. If the user asks to create/start a story and "
+    "doesn't specify page content, pick *edit_story_prompt* with their request as `new_prompt`. "
+    "When you regenerate, produce 5 pages with only 1‑2 sentences each.\n\nWhen editing, respond "
+    "*only* with the function call and arguments (no prose). Otherwise, produce assistant_output via continue_chat."
+)
 
 # ────────────────────────────
-# ░░ Helper functions ░░
+# ░░ Helper functions ░░
 # ────────────────────────────
-def detect_intent(user_input: str) -> Tuple[Mode, dict]:
-    """Use GPT (tools API) to pick which function the user wants."""
-    resp = client.chat.completions.create(
+
+def _clean_json_fence(raw: str) -> str:
+    """Remove triple‑backtick fences and isolate JSON array text."""
+    # Strip any ```json or ``` wrapper lines
+    cleaned = re.sub(r"```\w*", "", raw).strip()
+    # Extract substring between first '[' and last ']'
+    match = re.search(r"\[.*]", cleaned, re.S)
+    if match:
+        cleaned = match.group(0)
+    return cleaned.strip()
+
+
+def _parse_json_or_lines(text: str, expected: int = 5) -> List[str]:
+    """Parse a JSON array emitted by the model, handling code fences; fallback to line split."""
+    cleaned = _clean_json_fence(text)
+
+    # First try strict JSON
+    try:
+        data = json.loads(cleaned)
+        if isinstance(data, list):
+            pages = [str(x).strip() for x in data if str(x).strip()]
+        else:
+            pages = []
+    except json.JSONDecodeError:
+        # Fallback: split into non‑empty lines, strip bullet numbers and lone brackets
+        pages = [
+            re.sub(r"^\s*\d+[).\-]?\s*", "", ln).strip()
+            for ln in cleaned.splitlines()
+            if ln.strip() and ln.strip() not in {"[", "]"}
+        ]
+
+    # Pad or trim
+    if len(pages) < expected:
+        pages += ["…"] * (expected - len(pages))
+    return pages[:expected]
+
+
+def _generate_initial_pages(prompt: str, num_pages: int = 5) -> List[str]:
+    """Generate a short outline with exactly `num_pages` items, 1‑2 sentences each."""
+    logger.info("⚙️  Generating %d short pages for new prompt …", num_pages)
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are a creative storyteller. Given the user's prompt below, respond "
+                "with a *JSON array* of exactly 5 strings. Each string must be 1–2 sentences "
+                "that can serve as a concise page of the story. Do *NOT* wrap the array in "
+                "markdown or triple backticks. Return only the JSON array."
+            ),
+        },
+        {"role": "user", "content": prompt},
+    ]
+    response = client.chat.completions.create(
         model="gpt-4o-mini",
-        temperature=0,
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are an intent‑detection assistant for a story‑telling chat. "
-                    "Return exactly one function call that matches the user's request. "
-                    "If none fit, call `continue_chat`."
-                ),
-            },
-            {"role": "user", "content": user_input},
-        ],
+        messages=messages,
+        max_tokens=300,
+        temperature=0.7,
+    )
+    raw = response.choices[0].message.content.strip()
+    logger.debug("Raw page list from model: %s", raw)
+    pages = _parse_json_or_lines(raw, expected=num_pages)
+    logger.debug("Parsed pages: %s", pages)
+    return pages
+
+
+def _openai_call(user_message: str) -> Tuple[str, dict]:
+    """Send the user message + conversation context to OpenAI and return `(action, args)`."""
+    global MESSAGE_HISTORY
+
+    MESSAGE_HISTORY.append({"role": "user", "content": user_message})
+    MESSAGE_HISTORY = MESSAGE_HISTORY[-MAX_HISTORY:]
+
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + MESSAGE_HISTORY
+
+    logger.info("🔁  Sending %d messages to OpenAI (latest user: %s)", len(messages), user_message)
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=messages,
         tools=TOOLS,
         tool_choice="auto",
     )
 
-    msg = resp.choices[0].message
-    if msg.tool_calls:
-        tc = msg.tool_calls[0]
-        fn_name = tc.function.name  # type: ignore[attr-defined]
-        raw_args = tc.function.arguments or "{}"  # type: ignore[attr-defined]
+    choice = response.choices[0]
+    assistant_msg = choice.message
+
+    if assistant_msg.tool_calls:
+        call = assistant_msg.tool_calls[0]
         try:
-            args = json.loads(raw_args)
+            args = json.loads(call.function.arguments or "{}")
         except json.JSONDecodeError:
             args = {}
-        return FUNCTION_TO_MODE.get(fn_name, Mode.CONTINUE_CHAT), args
-    return Mode.CONTINUE_CHAT, {}
+        logger.info("🛠️  Tool chosen → %s %s", call.function.name, args)
+        return call.function.name, args
+
+    assistant_text = (assistant_msg.content or "").strip()
+    logger.info("💬  Assistant chat response (no tool): %s", assistant_text)
+
+    MESSAGE_HISTORY.append({"role": "assistant", "content": assistant_text})
+    MESSAGE_HISTORY = MESSAGE_HISTORY[-MAX_HISTORY:]
+
+    return "continue_chat", {"assistant_output": assistant_text}
 
 
-def chat_completion(history: List[Dict[str, str]]) -> str:
-    resp = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=history,
-        temperature=0.8,
-    )
-    return resp.choices[0].message.content
+def _apply_edit(action: str, data: dict) -> None:
+    """Apply the requested edit to the in‑memory `story_state`."""
+    global story_state
 
+    logger.info("✏️  Applying edit action=%s payload=%s", action, data)
 
-def dalle_image(prompt: str, n: int = 1, size: str = "1024x1024") -> List[str]:
-    resp = client.images.generate(prompt=prompt, n=n, size=size)
-    return [d.url for d in resp.data]
+    if action == "edit_text":
+        idx = data["page"]
+        if not 0 <= idx < len(story_state.pages):
+            logger.error("Page index %s out of range", idx)
+            raise HTTPException(400, f"Page index {idx} is out of range.")
+        story_state.pages[idx].text = data["new_text"]
 
+    elif action == "edit_all":
+        new_texts = data["new_texts"]
+        story_state.pages = [ StoryText(index=i, text=t) for i, t in enumerate(new_texts) ]
 
-def _ensure_page(story_id: str, idx: int) -> Story:
-    story = stories.setdefault(story_id, Story(id=story_id))
-    while len(story.pages) <= idx:
-        story.pages.append(StoryPage(index=len(story.pages)))
-    return story
+    elif action == "edit_story_prompt":
+        new_prompt = data["new_prompt"]
+        story_state.prompt = new_prompt
+        pages = _generate_initial_pages(new_prompt)
+        story_state.pages = [StoryText(index=i, text=p) for i, p in enumerate(pages)]
+
+    logger.debug("New story state: %s", story_state)
+
 
 # ────────────────────────────
-# ░░ API route ░░
+# ░░ API endpoint ░░
 # ────────────────────────────
 @app.post("/chat", response_model=ChatResponse)
-async def chat(req: ChatRequest):
-    # 1 Detect intent
-    mode, args = detect_intent(req.user_input)
+def chat(req: ChatRequest):
+    """Single endpoint that interprets the user's intent via OpenAI."""
 
-    # 2 Record user message
-    conv = messages.setdefault(req.conversation_id, [])
-    conv.append({"role": "user", "content": req.user_input})
+    logger.info("➡️  /chat called with input: %s", req.user_input)
+    action, payload = _openai_call(req.user_input)
+    logger.info("⬅️  Action decided: %s", action)
 
-    # 3 Story context
-    story_id = req.story_id or req.conversation_id
+    if action == "continue_chat":
+        response = ChatResponse(
+            mode=Mode.CONTINUE_CHAT,
+            assistant_output=payload.get("assistant_output", ""),
+            story=story_state,
+        )
+        logger.debug("Returning chat response: %s", response)
+        return response
 
-    # 4 Execute action
-    if mode is Mode.CONTINUE_CHAT:
-        assistant = chat_completion(conv)
-        conv.append({"role": "assistant", "content": assistant})
-        return ChatResponse(mode=mode, assistant_output=assistant)
+    _apply_edit(action, payload)
+    response = ChatResponse(mode=Mode(action), story=story_state)
+    logger.debug("Returning edit response: %s", response)
+    return response
 
-    if mode is Mode.EDIT_STORY_PROMPT:
-        new_prompt = args.get("new_story_prompt")
-        if not new_prompt:
-            raise HTTPException(400, "Missing `new_story_prompt`.")
-        story = stories.setdefault(story_id, Story(id=story_id))
-        story.prompt = new_prompt
-        return ChatResponse(mode=mode,
-                            assistant_output="Story prompt updated.",
-                            story=story)
 
-    if mode is Mode.EDIT_TEXT:
-        idx, new_text = args.get("page"), args.get("new_text")
-        if idx is None or new_text is None:
-            raise HTTPException(400, "`page` and `new_text` are required.")
-        story = _ensure_page(story_id, idx)
-        story.pages[idx].text = new_text
-        return ChatResponse(mode=mode,
-                            assistant_output=f"Page {idx} text updated.",
-                            story=story)
-
-    if mode is Mode.EDIT_IMAGE_PROMPT:
-        idx, new_img = args.get("page"), args.get("new_image_prompt")
-        if idx is None or new_img is None:
-            raise HTTPException(400, "`page` and `new_image_prompt` are required.")
-        story = _ensure_page(story_id, idx)
-        story.pages[idx].image_prompt = new_img
-        return ChatResponse(mode=mode,
-                            assistant_output=f"Page {idx} image prompt updated.",
-                            story=story)
-
-    if mode is Mode.EDIT_ALL:
-        idx = args.get("page")
-        new_text = args.get("new_text")
-        new_img = args.get("new_image_prompt")
-        if idx is None or new_text is None or new_img is None:
-            raise HTTPException(400,
-                                "`page`, `new_text`, and `new_image_prompt` are required.")
-        story = _ensure_page(story_id, idx)
-        story.pages[idx].text = new_text
-        story.pages[idx].image_prompt = new_img
-        return ChatResponse(mode=mode,
-                            assistant_output=f"Page {idx} text and image prompt updated.",
-                            story=story)
-
-    if mode is Mode.GENERATE_IMAGE:
-        idx = args.get("page")
-        n = args.get("n", 1)
-        if idx is None:
-            raise HTTPException(400, "`page` is required.")
-        story = _ensure_page(story_id, idx)
-        prompt = story.pages[idx].image_prompt or f"Illustration for page {idx} of the story."
-        urls = dalle_image(prompt, n=n)
-        return ChatResponse(mode=mode,
-                            assistant_output="Images generated.",
-                            story=story,
-                            image_urls=urls)
-
-    # If we somehow fall through:
-    raise HTTPException(500, f"Unhandled mode '{mode}'.")
+# ────────────────────────────
+# ░░ Run locally ░░
+# ────────────────────────────
+# uvicorn main:app --reload
