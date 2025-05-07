@@ -107,14 +107,6 @@ TOOLS: List[Dict] = [
     {
         "type": "function",
         "function": {
-            "name": "continue_chat",
-            "description": "Keep chatting with the user.",
-            "parameters": {"type": "object", "properties": {}},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
             "name": "edit_text",
             "description": "Edit the text of a single page by index.",
             "parameters": {
@@ -311,7 +303,6 @@ def _openai_call(user_msg: str) -> Tuple[str, dict]:
     SYSTEM_PROMPT = (
         "You are StoryGPT. Decide if the user is chatting or wants to use a tool.\n\n"
         "Tools:\n"
-        "• continue_chat – normal conversation\n"
         "• edit_text – replace text of one page\n"
         "• edit_all – replace every page\n"
         "• insert_page – add a page\n"
@@ -320,7 +311,8 @@ def _openai_call(user_msg: str) -> Tuple[str, dict]:
         "• edit_story_prompt – new synopsis\n"
         "• generate_image – illustrate a page\n"
         "• set_page_count – regenerate the story with a new number of pages\n\n"
-        "If invoking a tool, respond ONLY with the function call JSON. Otherwise use continue_chat."
+        "When you simply want to answer the user, reply with normal assistant text **without** invoking any tool. "
+        "If you need to modify the story, respond ONLY with the relevant function call JSON."
     )
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + MESSAGE_HISTORY
@@ -420,6 +412,7 @@ def _apply_action(action: str, data: dict) -> Dict:
 @app.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest):
     action, payload = _openai_call(req.user_input)
+    print(payload)
 
     # Simple chat
     if action == "continue_chat":

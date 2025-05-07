@@ -24,6 +24,7 @@ def pretty(d: dict) -> str:
     """Nicely format the response for console display."""
     mode = d["mode"]
     out = [f"\n[MODE: {mode}]"]
+    print(d)
     if d.get("assistant_output"):
         out.append(f"Assistant: {d['assistant_output']}")
     if d.get("story"):
