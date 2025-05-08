@@ -61,7 +61,6 @@ app = FastAPI(title="StoryGPT Backend", version="2.2.0")
 # ────────────────────────────
 class Mode(str, Enum):
     CONTINUE_CHAT = "continue_chat"
-    SET_PAGE_COUNT = "set_page_count"
 
     EDIT_TEXT = "edit_text"
     EDIT_ALL = "edit_all"
@@ -220,7 +219,7 @@ TOOLS: List[Dict] = [
         "type": "function",
         "function": {
             "name": "edit_story_prompt",
-            "description": "Update the story prompt and regenerate initial pages.",
+            "description": "Update the story prompt.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -276,24 +275,7 @@ TOOLS: List[Dict] = [
                 "required": ["name"],
             },
         },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "set_page_count",
-            "description": (
-                "Resize the story to exactly `count` pages *and regenerate fresh page texts* "
-                "based on the current story prompt."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "count": {"type": "integer", "description": "Desired page count (≥1)."}
-                },
-                "required": ["count"],
-            },
-        },
-    },
+    }
 ]
 
 # ────────────────────────────
@@ -361,13 +343,17 @@ def _find_entity(name: str) -> Optional[StoryEntity]:
 # ░░ OpenAI chat orchestration ░░
 # ────────────────────────────
 
-def _openai_call(user_msg: str) -> Tuple[str, dict]:
+def _openai_call(user_msg: str) -> Tuple[List[Tuple[str, dict, str]], Optional[str]]:
     global MESSAGE_HISTORY
     MESSAGE_HISTORY.append({"role": "user", "content": user_msg})
     MESSAGE_HISTORY = MESSAGE_HISTORY[-MAX_HISTORY:]
 
     SYSTEM_PROMPT = (
-        "You are StoryGPT. Decide if the user is chatting or wants to use a tool.\n\n"
+        f"You are StoryGPT. Decide if the user is chatting or wants to use a tool.\n\n"
+        f"Current story summary:\n"
+        f"• Pages: {len(story_state.pages)}\n"
+        f"• Entities: {len(entities_state)}\n"
+        f"• Prompt: {story_state.prompt[:120]}{'...' if len(story_state.prompt) > 120 else ''}\n\n"
         "Tools:\n"
         "• edit_text – replace text of one page\n"
         "• edit_all – replace every page\n"
@@ -378,11 +364,11 @@ def _openai_call(user_msg: str) -> Tuple[str, dict]:
         "• add_entity – create a reusable entity (name, image, description)\n"
         "• update_entity – update an existing entity\n"
         "• delete_entity – remove an entity\n"
-        "• set_page_count – regenerate the story with a new number of pages\n\n"
         "When you simply want to answer the user, reply with normal assistant text **without** invoking any tool. "
-        "If you need to modify the story or entities, respond ONLY with the relevant function call JSON." \
-        "If no tools really fit, but it is related to story editing. respond with edit_story_prompt."
+        "If you need to modify the story or entities, respond ONLY with the relevant function call JSON. "
+        "If no tools really fit, but it is related to story editing, respond with edit_story_prompt."
     )
+
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + MESSAGE_HISTORY
     resp = client.chat.completions.create(
@@ -391,33 +377,31 @@ def _openai_call(user_msg: str) -> Tuple[str, dict]:
         tools=TOOLS,
         tool_choice="auto",
     )
+
     msg = resp.choices[0].message
 
-    # tool chosen
+    # multiple tool calls
     if msg.tool_calls:
-        call = msg.tool_calls[0]
-        tool_call_id = call.id  # ✅ capture the required ID
-        try:
-            args = json.loads(call.function.arguments or "{}")
-        except json.JSONDecodeError:
-            args = {}
-
-        # store the assistant's function-call message
         MESSAGE_HISTORY.append({
             "role": "assistant",
             "content": None,
             "tool_calls": msg.tool_calls,
         })
 
-        # ✅ return the action, args, and tool_call_id
-        return call.function.name, args, tool_call_id
+        actions = []
+        for call in msg.tool_calls:
+            try:
+                args = json.loads(call.function.arguments or "{}")
+            except json.JSONDecodeError:
+                args = {}
+            actions.append((call.function.name, args, call.id))
+        return actions, None
 
-
-    # normal assistant text
+    # fallback: normal assistant response
     assistant_text = (msg.content or "").strip()
     MESSAGE_HISTORY.append({"role": "assistant", "content": assistant_text})
-    MESSAGE_HISTORY = MESSAGE_HISTORY[-MAX_HISTORY:]
-    return "continue_chat", {"assistant_output": assistant_text}, None
+    return [], assistant_text
+
 
 
 # ────────────────────────────
@@ -489,13 +473,6 @@ def _apply_action(action: str, data: dict) -> Dict:
             raise HTTPException(404, "Entity not found.")
         entities_state.remove(ent)
 
-    elif action == "set_page_count":
-        count = data["count"]
-        if count < 1:
-            raise HTTPException(400, "count must be ≥1")
-        new_pages = _generate_initial_pages(story_state.prompt, num_pages=count)
-        story_state.pages = [StoryText(index=i, text=t) for i, t in enumerate(new_pages)]
-
     else:
         raise HTTPException(400, f"Unknown action {action}")
 
@@ -508,55 +485,45 @@ def _apply_action(action: str, data: dict) -> Dict:
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest):
-    """Chat endpoint: merges incoming story/entities state and routes to AI/tool logic."""
-    global story_state, entities_state, MESSAGE_HISTORY 
+    global story_state, entities_state, MESSAGE_HISTORY
 
-    # ── 1. merge client-side story state ──────────────────────
     if req.story is not None:
-        # Minimal merge: overwrite wholesale; advanced diff/merge left to frontend.
         story_state = req.story
         _normalize_indexes()
-
     if req.entities is not None:
-        # Replace entity list (frontend acts as source of truth).
         entities_state = list(req.entities)
 
-    # ── 2. run conversational orchestration ──────────────────
-    action, payload, tool_call_id = _openai_call(req.user_input)
-    print("----------\n")
-    print("Action: ", action, "\nPayload: ", payload)
-    print("----------\n")
+    tool_calls, assistant_output = _openai_call(req.user_input)
+    print("TOOL_CALS: ", tool_calls, "\n---")
 
-    # Simple chat (no tool)
-    if action == "continue_chat":
+    # Normal chat
+    if not tool_calls:
         return ChatResponse(
             mode=Mode.CONTINUE_CHAT,
-            assistant_output=payload.get("assistant_output", ""),
+            assistant_output=assistant_output,
             story=story_state,
             entities=entities_state,
         )
 
-    # Tool call
-    extras = _apply_action(action, payload)
-        # store the tool's response so the model remembers what happened
-    MESSAGE_HISTORY.append({
-        "role": "tool",
-        "tool_call_id": tool_call_id,  # ✅ required
-        "name": action,
-        "content": json.dumps({
-            "prompt": story_state.prompt,
-            "pages": [pg.text for pg in story_state.pages],
-        }),
-    })
-
+    # One or more tool calls
+    for action, payload, tool_call_id in tool_calls:
+        extras = _apply_action(action, payload)
+        MESSAGE_HISTORY.append({
+            "role": "tool",
+            "tool_call_id": tool_call_id,
+            "name": action,
+            "content": json.dumps({
+                "prompt": story_state.prompt,
+                "pages": [pg.text for pg in story_state.pages],
+            }),
+        })
 
     MESSAGE_HISTORY = MESSAGE_HISTORY[-MAX_HISTORY:]
-
     return ChatResponse(
-        mode=Mode(action),
+        mode=Mode(tool_calls[-1][0]),  # mode of last action
         story=story_state,
         entities=entities_state,
-        image_urls=extras.get("image_urls"),
+        image_urls=extras.get("image_urls", None),
     )
 
 
