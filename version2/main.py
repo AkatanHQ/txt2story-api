@@ -1,39 +1,29 @@
+from __future__ import annotations
+
 """
-StoryGPT Backend – FastAPI + OpenAI 2.1.0
+StoryGPT Backend – FastAPI + OpenAI 2.2.0
 -----------------------------------------
 
 A FastAPI backend for an interactive, pageable storytelling chat.
-It leverages OpenAI *function‑calling* to decide whether the user
-wants to chat, tweak pages, or regenerate the entire story.
+It now supports editing/injecting **story prompts, story text, and entities** via
+both the REST request body *and* new OpenAI tool calls.
 
-Changes in v2.1.0 (2025‑05‑07)
-• 🆕 **set_page_count** – resize the story *and regenerate fresh text* so the
-  page count and content always match.
-• 🔄 Updated system‑prompt & TOOLS to advertise the new helper.
-• 🧼 Removed placeholder logic; resizing now always produces coherent text.
-• Minor tidy‑ups & version bump.
+Changes in v2.2.0 (2025-05-08)
+• 🆕 Added **entities_state** in-memory store and CRUD helpers.
+• 🆕 Added `add_entity`, `update_entity`, `delete_entity` tool calls.
+• 🆕 `ChatRequest` may include a partial story and/or entity list to prime state.
+• 🆕 `ChatResponse` now returns the current entities list.
+• 🔄 Extended `Mode` enum with new actions.
+• 🔄 Extended system prompt + TOOLS to advertise new helpers.
+• 🔄 Updated endpoint logic to merge incoming story/entities before routing to
+  the OpenAI function-calling flow.
+• 🔄 Minor refactors & version bump.
 
 Run:
     pip install fastapi uvicorn pydantic python-dotenv openai
-    export OPENAI_API_KEY="sk‑..."
+    export OPENAI_API_KEY="sk-..."
     uvicorn main:app --reload
-
-Information:
-Inputs
-- Story holds the generate structure,
-- storytext holds the text of 1 page of the story
-- storyimage holds the prompt,size and quality of 1 page of the story
-- Entities are given by the user and have a name (as id), possibly an image and a prompt
-
-Dependencies/Relations
-- The entities are input for when generating a new story, such that the AI know what entities to use in the story
-- When generating an image, the input-prompt for AI will be: the StoryImage + the entities that are mentioned in the prompt 
-  - 1 entity includes an image + prompt, and by referencing it correctly in the input for the ai
-- When generating a new story, the input-prompt for AI will be: the prompt + the entities, such that the AI knows how to use and who to use in the story.
-- In the ImagePrompt, if a entitity is needed as input, it will reference it by the name/id
 """
-
-from __future__ import annotations
 
 import json
 import logging
@@ -64,36 +54,29 @@ client = OpenAI()  # reads OPENAI_API_KEY
 # ────────────────────────────
 # ░░ FastAPI app ░░
 # ────────────────────────────
-app = FastAPI(title="StoryGPT Backend", version="2.1.0")
+app = FastAPI(title="StoryGPT Backend", version="2.2.0")
 
 # ────────────────────────────
 # ░░ Data models ░░
 # ────────────────────────────
 class Mode(str, Enum):
     CONTINUE_CHAT = "continue_chat"
+    SET_PAGE_COUNT = "set_page_count"
+
     EDIT_TEXT = "edit_text"
     EDIT_ALL = "edit_all"
     INSERT_PAGE = "insert_page"
     DELETE_PAGE = "delete_page"
     MOVE_PAGE = "move_page"
     EDIT_STORY_PROMPT = "edit_story_prompt"
-    GENERATE_IMAGE = "generate_image"
-    SET_PAGE_COUNT = "set_page_count"
 
-# ────────────────────────────
-# ######### Inputs #########
-# - Story holds the generate structure,
-# - storytext holds the text of 1 page of the story
-# - storyimage holds the prompt,size and quality of 1 page of the story
-# - Entities are given by the user and have a name (as id), possibly an image and a prompt
-#
-# ######### Dependencies/Relations #########
-# - The entities are input for when generating a new story, such that the AI know what entities to use in the story
-# - When generating an image, the input-prompt for AI will be: the StoryImage + the entities that are mentioned in the prompt 
-#   - 1 entity includes an image + prompt, and by referencing it correctly in the input for the ai
-# - When generating a new story, the input-prompt for AI will be: the prompt + the entities, such that the AI knows how to use and who to use in the story.
-# - In the ImagePrompt, if a entitity is needed as input, it will reference it by the name/id
-# ────────────────────────────
+    EDIT_IMAGE_PROMPT = "edit_image_prompt"
+
+    # entity CRUD
+    ADD_ENTITY = "add_entity"
+    UPDATE_ENTITY = "update_entity"
+    DELETE_ENTITY = "delete_entity"
+
 
 class StoryImage(BaseModel):
     index: int
@@ -101,14 +84,17 @@ class StoryImage(BaseModel):
     size:   Optional[str] = None        # 512×512 … 1024×1792
     quality: Optional[str] = None
 
+
 class StoryEntity(BaseModel):
-    name: str = Field(default="") # identifier
-    b64_json: Optional[str] = None   # input image from the user
-    prompt: Optional[str] = None # input description/prompt from the user
+    name: str = Field(default="")  # identifier (unique)
+    b64_json: Optional[str] = None  # input image from the user
+    prompt: Optional[str] = None    # input description/prompt from the user
+
 
 class StoryText(BaseModel):
     index: int
     text: str = Field(default="")
+
 
 class Story(BaseModel):
     prompt: str = Field(default="")
@@ -116,22 +102,35 @@ class Story(BaseModel):
 
 
 class ChatRequest(BaseModel):
+    """Frontend payload.
+
+    • `user_input` – the natural-language message.
+    • `story` – optional partial/complete story state coming from the UI.
+    • `entities` – optional list of entities coming from the UI.
+    """
+
     user_input: str
+    story: Optional[Story] = None
+    entities: Optional[List[StoryEntity]] = None
+
 
 class ChatResponse(BaseModel):
     mode: Mode
     assistant_output: Optional[str] = None
     story: Optional[Story] = None
+    entities: Optional[List[StoryEntity]] = None
     image_urls: Optional[List[str]] = None
 
 
 # ────────────────────────────
-# ░░ In‑memory state ░░
+# ░░ In-memory state ░░
 # ────────────────────────────
 story_state = Story(
     prompt="An epic tale begins.",
     pages=[StoryText(index=0, text="Once upon a time …")],
 )
+
+entities_state: List[StoryEntity] = []
 
 MAX_HISTORY = 20
 MESSAGE_HISTORY: List[dict] = []  # excludes system prompt
@@ -148,7 +147,7 @@ TOOLS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "page": {"type": "integer", "description": "Zero‑based page index."},
+                    "page": {"type": "integer", "description": "Zero-based page index."},
                     "new_text": {"type": "string", "description": "Replacement text."},
                 },
                 "required": ["page", "new_text"],
@@ -231,23 +230,50 @@ TOOLS: List[Dict] = [
             },
         },
     },
+    # Entity CRUD tool calls
     {
         "type": "function",
         "function": {
-            "name": "generate_image",
-            "description": "Generate an illustration for a page and store its URL.",
+            "name": "add_entity",
+            "description": "Add a new entity usable by future story/image generations.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "page": {"type": "integer", "description": "Page index."},
-                    "prompt": {"type": "string", "description": "Image prompt override."},
-                    "size": {
-                        "type": "string",
-                        "enum": ["512x512", "1024x1024", "1792x1024", "1024x1792"],
-                        "description": "Image size.",
-                    },
+                    "name": {"type": "string", "description": "Unique identifier."},
+                    "b64_json": {"type": "string", "description": "Optional base64 image."},
+                    "prompt": {"type": "string", "description": "Optional text description."},
                 },
-                "required": ["page"],
+                "required": ["name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "update_entity",
+            "description": "Update an existing entity's prompt and/or image (identified by `name`).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Identifier to update."},
+                    "b64_json": {"type": "string", "description": "Optional base64 image."},
+                    "prompt": {"type": "string", "description": "Optional text description."},
+                },
+                "required": ["name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_entity",
+            "description": "Remove an entity by its `name`.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Identifier to remove."}
+                },
+                "required": ["name"],
             },
         },
     },
@@ -303,7 +329,7 @@ def _generate_initial_pages(prompt: str, num_pages: int = 5) -> List[str]:
             "role": "system",
             "content": (
                 "You are a creative storyteller. Return *only* a JSON array with exactly {n} "
-                "elements, each 1‑2 sentences long, continuing the user's prompt. Do NOT wrap "
+                "elements, each 1-2 sentences long, continuing the user's prompt. Do NOT wrap "
                 "in markdown.".format(n=num_pages)
             ),
         },
@@ -324,12 +350,16 @@ def _normalize_indexes() -> None:
         pg.index = i
 
 
-def _generate_image_for_page(idx: int, prompt: str, size: str = "1024x1024") -> str:
-    resp = client.images.generate(model="dall-e-3", prompt=prompt, n=1, size=size)
-    url = resp.data[0].url  # type: ignore[attr-defined]
-    story_state.pages[idx].image_url = url
-    return url
+# ────────────────────────────
+# ░░ Entity helpers ░░
+# ────────────────────────────
 
+def _find_entity(name: str) -> Optional[StoryEntity]:
+    return next((e for e in entities_state if e.name == name), None)
+
+# ────────────────────────────
+# ░░ OpenAI chat orchestration ░░
+# ────────────────────────────
 
 def _openai_call(user_msg: str) -> Tuple[str, dict]:
     global MESSAGE_HISTORY
@@ -345,10 +375,13 @@ def _openai_call(user_msg: str) -> Tuple[str, dict]:
         "• delete_page – remove a page\n"
         "• move_page – reorder pages\n"
         "• edit_story_prompt – new synopsis\n"
-        "• generate_image – illustrate a page\n"
+        "• add_entity – create a reusable entity (name, image, description)\n"
+        "• update_entity – update an existing entity\n"
+        "• delete_entity – remove an entity\n"
         "• set_page_count – regenerate the story with a new number of pages\n\n"
         "When you simply want to answer the user, reply with normal assistant text **without** invoking any tool. "
-        "If you need to modify the story, respond ONLY with the relevant function call JSON."
+        "If you need to modify the story or entities, respond ONLY with the relevant function call JSON." \
+        "If no tools really fit, but it is related to story editing. respond with edit_story_prompt."
     )
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + MESSAGE_HISTORY
@@ -360,18 +393,31 @@ def _openai_call(user_msg: str) -> Tuple[str, dict]:
     )
     msg = resp.choices[0].message
 
+    # tool chosen
     if msg.tool_calls:
         call = msg.tool_calls[0]
+        tool_call_id = call.id  # ✅ capture the required ID
         try:
             args = json.loads(call.function.arguments or "{}")
         except json.JSONDecodeError:
             args = {}
-        return call.function.name, args
 
+        # store the assistant's function-call message
+        MESSAGE_HISTORY.append({
+            "role": "assistant",
+            "content": None,
+            "tool_calls": msg.tool_calls,
+        })
+
+        # ✅ return the action, args, and tool_call_id
+        return call.function.name, args, tool_call_id
+
+
+    # normal assistant text
     assistant_text = (msg.content or "").strip()
     MESSAGE_HISTORY.append({"role": "assistant", "content": assistant_text})
     MESSAGE_HISTORY = MESSAGE_HISTORY[-MAX_HISTORY:]
-    return "continue_chat", {"assistant_output": assistant_text}
+    return "continue_chat", {"assistant_output": assistant_text}, None
 
 
 # ────────────────────────────
@@ -380,6 +426,8 @@ def _openai_call(user_msg: str) -> Tuple[str, dict]:
 
 def _apply_action(action: str, data: dict) -> Dict:
     extra: Dict = {}
+
+    # Page / story tools (existing)
     if action == "edit_text":
         idx = data["page"]
         if not 0 <= idx < len(story_state.pages):
@@ -419,14 +467,27 @@ def _apply_action(action: str, data: dict) -> Dict:
         pages = _generate_initial_pages(new_prompt)
         story_state.pages = [StoryText(index=i, text=p) for i, p in enumerate(pages)]
 
-    elif action == "generate_image":
-        idx = data["page"]
-        if not 0 <= idx < len(story_state.pages):
-            raise HTTPException(400, "Image page index out of range.")
-        prompt = data.get("prompt") or story_state.pages[idx].text
-        size = data.get("size", "1024x1024")
-        url = _generate_image_for_page(idx, prompt, size)
-        extra["image_urls"] = [url]
+    # Entity tools
+    elif action == "add_entity":
+        name = data["name"]
+        if _find_entity(name):
+            raise HTTPException(400, f"Entity '{name}' already exists. Use update_entity instead.")
+        entities_state.append(StoryEntity(**data))
+
+    elif action == "update_entity":
+        ent = _find_entity(data["name"])
+        if ent is None:
+            raise HTTPException(404, "Entity not found.")
+        if "b64_json" in data:
+            ent.b64_json = data["b64_json"]
+        if "prompt" in data:
+            ent.prompt = data["prompt"]
+
+    elif action == "delete_entity":
+        ent = _find_entity(data["name"])
+        if ent is None:
+            raise HTTPException(404, "Entity not found.")
+        entities_state.remove(ent)
 
     elif action == "set_page_count":
         count = data["count"]
@@ -447,20 +508,56 @@ def _apply_action(action: str, data: dict) -> Dict:
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest):
-    action, payload = _openai_call(req.user_input)
-    print(payload)
+    """Chat endpoint: merges incoming story/entities state and routes to AI/tool logic."""
+    global story_state, entities_state, MESSAGE_HISTORY 
 
-    # Simple chat
+    # ── 1. merge client-side story state ──────────────────────
+    if req.story is not None:
+        # Minimal merge: overwrite wholesale; advanced diff/merge left to frontend.
+        story_state = req.story
+        _normalize_indexes()
+
+    if req.entities is not None:
+        # Replace entity list (frontend acts as source of truth).
+        entities_state = list(req.entities)
+
+    # ── 2. run conversational orchestration ──────────────────
+    action, payload, tool_call_id = _openai_call(req.user_input)
+    print("----------\n")
+    print("Action: ", action, "\nPayload: ", payload)
+    print("----------\n")
+
+    # Simple chat (no tool)
     if action == "continue_chat":
         return ChatResponse(
             mode=Mode.CONTINUE_CHAT,
             assistant_output=payload.get("assistant_output", ""),
             story=story_state,
+            entities=entities_state,
         )
 
     # Tool call
     extras = _apply_action(action, payload)
-    return ChatResponse(mode=Mode(action), story=story_state, image_urls=extras.get("image_urls"))
+        # store the tool's response so the model remembers what happened
+    MESSAGE_HISTORY.append({
+        "role": "tool",
+        "tool_call_id": tool_call_id,  # ✅ required
+        "name": action,
+        "content": json.dumps({
+            "prompt": story_state.prompt,
+            "pages": [pg.text for pg in story_state.pages],
+        }),
+    })
+
+
+    MESSAGE_HISTORY = MESSAGE_HISTORY[-MAX_HISTORY:]
+
+    return ChatResponse(
+        mode=Mode(action),
+        story=story_state,
+        entities=entities_state,
+        image_urls=extras.get("image_urls"),
+    )
 
 
 # uvicorn main:app --reload
