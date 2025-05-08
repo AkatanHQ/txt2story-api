@@ -17,6 +17,20 @@ Run:
     pip install fastapi uvicorn pydantic python-dotenv openai
     export OPENAI_API_KEY="sk‑..."
     uvicorn main:app --reload
+
+Information:
+Inputs
+- Story holds the generate structure,
+- storytext holds the text of 1 page of the story
+- storyimage holds the prompt,size and quality of 1 page of the story
+- Entities are given by the user and have a name (as id), possibly an image and a prompt
+
+Dependencies/Relations
+- The entities are input for when generating a new story, such that the AI know what entities to use in the story
+- When generating an image, the input-prompt for AI will be: the StoryImage + the entities that are mentioned in the prompt 
+  - 1 entity includes an image + prompt, and by referencing it correctly in the input for the ai
+- When generating a new story, the input-prompt for AI will be: the prompt + the entities, such that the AI knows how to use and who to use in the story.
+- In the ImagePrompt, if a entitity is needed as input, it will reference it by the name/id
 """
 
 from __future__ import annotations
@@ -66,12 +80,35 @@ class Mode(str, Enum):
     GENERATE_IMAGE = "generate_image"
     SET_PAGE_COUNT = "set_page_count"
 
+# ────────────────────────────
+# ######### Inputs #########
+# - Story holds the generate structure,
+# - storytext holds the text of 1 page of the story
+# - storyimage holds the prompt,size and quality of 1 page of the story
+# - Entities are given by the user and have a name (as id), possibly an image and a prompt
+#
+# ######### Dependencies/Relations #########
+# - The entities are input for when generating a new story, such that the AI know what entities to use in the story
+# - When generating an image, the input-prompt for AI will be: the StoryImage + the entities that are mentioned in the prompt 
+#   - 1 entity includes an image + prompt, and by referencing it correctly in the input for the ai
+# - When generating a new story, the input-prompt for AI will be: the prompt + the entities, such that the AI knows how to use and who to use in the story.
+# - In the ImagePrompt, if a entitity is needed as input, it will reference it by the name/id
+# ────────────────────────────
+
+class StoryImage(BaseModel):
+    index: int
+    prompt: Optional[str] = None        # prompt actually used for this image
+    size:   Optional[str] = None        # 512×512 … 1024×1792
+    quality: Optional[str] = None
+
+class StoryEntity(BaseModel):
+    name: str = Field(default="") # identifier
+    b64_json: Optional[str] = None   # input image from the user
+    prompt: Optional[str] = None # input description/prompt from the user
 
 class StoryText(BaseModel):
     index: int
     text: str = Field(default="")
-    image_url: Optional[str] = Field(default=None)
-
 
 class Story(BaseModel):
     prompt: str = Field(default="")
@@ -80,7 +117,6 @@ class Story(BaseModel):
 
 class ChatRequest(BaseModel):
     user_input: str
-
 
 class ChatResponse(BaseModel):
     mode: Mode
