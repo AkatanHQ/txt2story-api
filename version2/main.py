@@ -1,29 +1,25 @@
 from __future__ import annotations
-from schemas import *
-from tools import *
 """
-StoryGPT Backend – FastAPI + OpenAI 2.2.0
------------------------------------------
+StoryGPT Backend – FastAPI + OpenAI 2.2.1 (stateless)
+----------------------------------------------------
 
-A FastAPI backend for an interactive, pageable storytelling chat.
-It now supports editing/injecting **story prompts, story text, and entities** via
-both the REST request body *and* new OpenAI tool calls.
+This version refactors the `/chat` endpoint to be fully **stateless** per request
+and async‑friendly, matching the signature the frontend now expects.
+----------------------------------------------------
 
-Changes in v2.2.0 (2025-05-08)
-• 🆕 Added **entities_state** in-memory store and CRUD helpers.
-• 🆕 Added `add_entity`, `update_entity`, `delete_entity` tool calls.
-• 🆕 `ChatRequest` may include a partial story and/or entity list to prime state.
-• 🆕 `ChatResponse` now returns the current entities list.
-• 🔄 Extended `Mode` enum with new actions.
-• 🔄 Extended system prompt + TOOLS to advertise new helpers.
-• 🔄 Updated endpoint logic to merge incoming story/entities before routing to
-  the OpenAI function-calling flow.
-• 🔄 Minor refactors & version bump.
+Information:
+Inputs
+- Story holds the generate structure,
+- storytext holds the text of 1 page of the story
+- storyimage holds the prompt,size and quality of 1 page of the story
+- Entities are given by the user and have a name (as id), possibly an image and a prompt
 
-Run:
-    pip install fastapi uvicorn pydantic python-dotenv openai
-    export OPENAI_API_KEY="sk-..."
-    uvicorn main:app --reload
+Dependencies/Relations
+- The entities are input for when generating a new story, such that the AI know what entities to use in the story
+- When generating an image, the input-prompt for AI will be: the StoryImage + the entities that are mentioned in the prompt 
+  - 1 entity includes an image + prompt, and by referencing it correctly in the input for the ai
+- When generating a new story, the input-prompt for AI will be: the prompt + the entities, such that the AI knows how to use and who to use in the story.
+- In the ImagePrompt, if a entitity is needed as input, it will reference it by the name/id
 """
 
 import json
@@ -35,6 +31,20 @@ from typing import Dict, List, Optional, Tuple
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from openai import OpenAI
+
+from schemas import (
+    Story,
+    StoryText,
+    StoryEntity,
+    ChatRequest,
+    ChatResponse,
+    Mode,
+)
+from tools import TOOLS
+from openai_helpers import run_with_retry 
+from openai import OpenAIError
+from io import BytesIO
+import base64
 
 # ────────────────────────────
 # ░░ Environment & logging ░░
@@ -51,25 +61,14 @@ logger.info("Logging initialised at %s level", LOG_LEVEL)
 client = OpenAI()
 
 # ────────────────────────────
+# ░░ Constants ░░
+# ────────────────────────────
+MAX_HISTORY = 20  # conversation turns we keep per request
+
+# ────────────────────────────
 # ░░ FastAPI app ░░
 # ────────────────────────────
-app = FastAPI(title="StoryGPT Backend", version="2.2.0")
-
-# ────────────────────────────
-# ░░ In-memory state ░░
-# ────────────────────────────
-
-story_state = Story(
-    prompt="An epic tale begins.",
-    pages=[StoryText(index=0, text="Once upon a time …")],
-)
-
-entities_state: List[StoryEntity] = []
-
-MAX_HISTORY = 20
-MESSAGE_HISTORY: List[dict] = []  # excludes system prompt
-
-
+app = FastAPI(title="StoryGPT Backend", version="2.2.1")
 
 # ────────────────────────────
 # ░░ Helpers ░░
@@ -85,26 +84,29 @@ def _parse_json_or_lines(text: str) -> List[str]:
     cleaned = _clean_json_fence(text)
     try:
         data = json.loads(cleaned)
-        pages = [str(x).strip() for x in data if str(x).strip()] if isinstance(data, list) else []
-    except json.JSONDecodeError:
-        pages = [
+        if isinstance(data, list) and all(isinstance(x, str) for x in data):
+            return [x.strip() for x in data if x.strip()]
+        raise ValueError("Parsed JSON is not a list of strings.")
+    except Exception as e:
+        logger.warning("Failed to parse JSON properly: %s", e)
+        # Fallback: naive line splitting
+        return [
             re.sub(r"^\s*\d+[).\-]?\s*", "", ln).strip()
             for ln in cleaned.splitlines()
             if ln.strip() and ln.strip() not in {"[", "]"}
         ]
-    return pages
 
 
-def _generate_story_pages(prompt: str, entities: Optional[List[StoryEntity]] = None) -> List[str]:
-\
+
+def _generate_story_pages(
+    prompt: str, entities: Optional[List[StoryEntity]] = None) -> List[str]:
+    """Call OpenAI to expand the prompt into *n* 1‑2 sentence pages."""
+
     ent_desc = "\n".join(
         f"- {e.name}: {e.prompt or 'image only'}" for e in (entities or [])
     ) or "(none)"
 
-    logger.info(
-        "Generating pages for prompt with %d entit(y|ies)",
-        len(entities or []),
-    )
+    logger.info("Generating pages for prompt with %d entit(y|ies)", len(entities or []))
 
     messages = [
         {
@@ -114,7 +116,7 @@ def _generate_story_pages(prompt: str, entities: Optional[List[StoryEntity]] = N
                 "entities are available and should be woven naturally into the "
                 "narrative whenever relevant:\n\n"
                 f"{ent_desc}\n\n"
-                "Return *only* a JSON array containing exactly {n} elements. "
+                "Return *only* a JSON array."
                 "Each element must be 1–2 sentences of story text that "
                 "continues the user's prompt. Do **NOT** wrap the array in "
                 "markdown code fences or add any extra keys."
@@ -122,7 +124,6 @@ def _generate_story_pages(prompt: str, entities: Optional[List[StoryEntity]] = N
         },
         {"role": "user", "content": prompt},
     ]
-
 
     resp = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -134,38 +135,40 @@ def _generate_story_pages(prompt: str, entities: Optional[List[StoryEntity]] = N
     return _parse_json_or_lines(raw)
 
 
-def _normalize_indexes() -> None:
-    for i, pg in enumerate(story_state.pages):
+def _normalize_indexes(story: Story) -> None:
+    for i, pg in enumerate(story.pages):
         pg.index = i
-
 
 # ────────────────────────────
 # ░░ Entity helpers ░░
 # ────────────────────────────
 
-def _find_entity(name: str) -> Optional[StoryEntity]:
-    return next((e for e in entities_state if e.name == name), None)
+def _find_entity(name: str, entities: List[StoryEntity]) -> Optional[StoryEntity]:
+    return next((e for e in entities if e.name == name), None)
 
 # ────────────────────────────
 # ░░ OpenAI chat orchestration ░░
 # ────────────────────────────
 
-def _intent_agent(user_msg: str) -> Tuple[List[Tuple[str, dict, str]], Optional[str]]:
-    global MESSAGE_HISTORY
-    MESSAGE_HISTORY.append({"role": "user", "content": user_msg})
-    MESSAGE_HISTORY = MESSAGE_HISTORY[-MAX_HISTORY:]
+def _intent_agent(
+    user_msg: str,
+    story: Story,
+    entities: List[StoryEntity],
+    history: List[dict],
+) -> Tuple[List[Tuple[str, dict]], Optional[str]]:
+    """Run the shallow intent agent to decide whether to call tools."""
+
+    history.append({"role": "user", "content": user_msg})
+    history[:] = history[-MAX_HISTORY:]
 
     SYSTEM_PROMPT = (
         "You are StoryGPT. Decide if the user is chatting or wants to use a tool.\n\n"
         "If tool use is needed, respond ONLY with the appropriate function call(s).\n\n"
-        "You are allowed to return **multiple tool calls in a single response**. "
-        "Do this when the user message implies a sequence of operations (e.g. "
-        "creating entities and then starting the story).\n\n"
+        "You are allowed to return **multiple tool calls in a single response**.\n\n"
         "Current story state:\n"
-        f"• Pages: {len(story_state.pages)}\n"
-        f"• Entities ({len(entities_state)}): "
-        f"{', '.join(e.name for e in entities_state) or '–'}\n"
-        f"• Prompt: {story_state.prompt[:120]}{'…' if len(story_state.prompt) > 120 else ''}\n\n"
+        f"• Pages: {len(story.pages)}\n"
+        f"• Entities ({len(entities)}): {', '.join(e.name for e in entities) or '–'}\n"
+        f"• Prompt: {story.prompt[:120]}{'…' if len(story.prompt) > 120 else ''}\n\n"
         "Available tools:\n"
         "• edit_story_prompt – replace the story synopsis\n"
 
@@ -176,13 +179,15 @@ def _intent_agent(user_msg: str) -> Tuple[List[Tuple[str, dict, str]], Optional[
         "• delete_page – remove a page\n"
         "• move_page – reorder pages\n"
 
-        "• add_entity – create a new character/entity\n"
+        "• add_entity – create a new unique character/entity\n"
         "• update_entity – change an entity’s name (`new_name`), image, or **delete / replace its prompt**"
             " (pass an empty string for `prompt` to clear it)\n"
         "• delete_entity – remove an entity\n\n"
 
         "If no tools make sense, just respond conversationally — but steer the user toward story creation.\n"
         "If it’s story-related and no tool fits exactly, use edit_story_prompt.\n"
+        "Also look at histroy, to make a decision."
+        "If tool use is needed, do not reply with natural language. Always return structured tool calls."
         "Example:\n"
             "User: Create two characters and write a story about them.\n"
             "Tool calls:\n"
@@ -191,10 +196,10 @@ def _intent_agent(user_msg: str) -> Tuple[List[Tuple[str, dict, str]], Optional[
             "3. edit_story_prompt → new_prompt: A tale of Valandor and Lyra...\n\n"
     )
 
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
 
-
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + MESSAGE_HISTORY
-    resp = client.chat.completions.create(
+    resp = run_with_retry(
+        client.chat.completions.create,
         model="gpt-4o-mini",
         messages=messages,
         tools=TOOLS,
@@ -203,150 +208,203 @@ def _intent_agent(user_msg: str) -> Tuple[List[Tuple[str, dict, str]], Optional[
 
     msg = resp.choices[0].message
 
-    # multiple tool calls
-    if msg.tool_calls:
-        MESSAGE_HISTORY.append({
-            "role": "assistant",
-            "content": "",
-            "tool_calls": msg.tool_calls,
-        })
+    tool_calls: List[Tuple[str, dict]] = []
+    assistant_output: Optional[str] = None
 
-        actions = []
+    if msg.tool_calls:
+        history.append({"role": "assistant", "content": ""})
         for call in msg.tool_calls:
             try:
                 args = json.loads(call.function.arguments or "{}")
             except json.JSONDecodeError:
                 args = {}
-            actions.append((call.function.name, args, call.id))
-        return actions, None
+            tool_calls.append((call.function.name, args))
+    else:
+        assistant_output = (msg.content or "").strip()
+        history.append({"role": "assistant", "content": assistant_output})
 
-    # fallback: normal assistant response
-    assistant_text = (msg.content or "").strip()
-    MESSAGE_HISTORY.append({"role": "assistant", "content": assistant_text})
-    return [], assistant_text
-
-
+    return tool_calls, assistant_output
 
 # ────────────────────────────
 # ░░ Apply actions ░░
 # ────────────────────────────
 
-def _apply_action(action: str, data: dict) -> Dict:
-    extra: Dict = {}
+def _apply_action(
+    action: str,
+    data: dict,
+    story: Story,
+    entities: List[StoryEntity],
+) -> Dict:
+    """Mutate *story* and *entities* in‑place according to the tool call."""
 
-    # Page / story tools (existing)
+    extras: Dict = {}
+
+    # Page / story tools
     if action == "edit_story_prompt":
         new_prompt = data["new_prompt"]
-        story_state.prompt = new_prompt
-        pages = _generate_story_pages(new_prompt, entities=entities_state)
-        story_state.pages = [StoryText(index=i, text=p) for i, p in enumerate(pages)]
+        story.prompt = new_prompt
+        pages = _generate_story_pages(new_prompt, entities=entities)
+        story.pages = [StoryText(index=i, text=p) for i, p in enumerate(pages)]
+
+    elif action == "generate_image":
+        prompt = data["prompt"]
+        entity_names = data.get("entity_names", [])
+        used_entities = [e for e in entities if e.name in entity_names]
+
+        image_files = [BytesIO(base64.b64decode(e.b64_json)) for e in used_entities if e.b64_json]
+        text_prompts = [f"{e.name}: {e.prompt}" for e in used_entities if not e.b64_json and e.prompt]
+
+        if text_prompts:
+            prompt += "\n\n" + "\n".join(text_prompts)
+
+        image_b64 = None
+
+        if image_files:
+            try:
+                result = client.images.edit(
+                    model="gpt-image-1",
+                    image=image_files,
+                    prompt=prompt,
+                    quality="low",
+                )
+                image_b64 = result.data[0].b64_json
+            except OpenAIError as e:
+                logger.error("Image generation failed: %s", str(e))
+                raise HTTPException(status_code=502, detail=f"Image generation failed: {str(e)}")
+
+        elif text_prompts:
+            try:
+                result = client.images.generate(
+                    model="gpt-image-1",
+                    prompt=prompt,
+                    n=1,
+                    size="1024x1024",
+                    quality="low",
+                )
+                image_b64 = result.data[0].b64_json
+            except OpenAIError as e:
+                logger.error("Image generation failed: %s", str(e))
+                raise HTTPException(status_code=502, detail=f"Image generation failed: {str(e)}")
+
+        else:
+            raise HTTPException(400, "No valid image files or prompts provided for image generation.")
+
+        return {"image_b64": image_b64}
     elif action == "edit_text":
         idx = data["page"]
-        if not 0 <= idx < len(story_state.pages):
+        if not 0 <= idx < len(story.pages):
             raise HTTPException(400, "Page index out of range.")
-        story_state.pages[idx].text = data["new_text"]
+        story.pages[idx].text = data["new_text"]
+
     elif action == "edit_all":
         new_texts = data["new_texts"]
-        story_state.pages = [StoryText(index=i, text=t) for i, t in enumerate(new_texts)]
+        story.pages = [StoryText(index=i, text=t) for i, t in enumerate(new_texts)]
+        _normalize_indexes(story)
 
     elif action == "insert_page":
         idx = data["index"]
         text = data["text"]
-        if not 0 <= idx <= len(story_state.pages):
+        if not 0 <= idx <= len(story.pages):
             raise HTTPException(400, "Insert index out of range.")
-        story_state.pages.insert(idx, StoryText(index=idx, text=text))
-        _normalize_indexes()
+        story.pages.insert(idx, StoryText(index=idx, text=text))
+        _normalize_indexes(story)
+
     elif action == "delete_page":
         idx = data["index"]
-        if not 0 <= idx < len(story_state.pages):
+        if not 0 <= idx < len(story.pages):
             raise HTTPException(400, "Delete index out of range.")
-        story_state.pages.pop(idx)
-        _normalize_indexes()
+        story.pages.pop(idx)
+        _normalize_indexes(story)
+
     elif action == "move_page":
         frm, to = data["from_index"], data["to_index"]
-        if not (0 <= frm < len(story_state.pages)) or not (0 <= to < len(story_state.pages)):
+        if not (0 <= frm < len(story.pages)) or not (0 <= to < len(story.pages)):
             raise HTTPException(400, "Move indexes out of range.")
-        page = story_state.pages.pop(frm)
-        story_state.pages.insert(to, page)
-        _normalize_indexes()
+        page = story.pages.pop(frm)
+        story.pages.insert(to, page)
+        _normalize_indexes(story)
 
-    
     # Entity tools
     elif action == "add_entity":
         name = data["name"]
-        if _find_entity(name):
-            raise HTTPException(400, f"Entity '{name}' already exists. Use update_entity instead.")
-        entities_state.append(StoryEntity(**data))
+        if _find_entity(name, entities):
+            # Silently turn it into an update instead of bombing out
+            action = "update_entity"
+            data = {"name": name, **data}
+        entities.append(StoryEntity(**data))
+
     elif action == "update_entity":
-        ent = _find_entity(data["name"])
+        ent = _find_entity(data["name"], entities)
         if ent is None:
             raise HTTPException(404, "Entity not found.")
         if "new_name" in data and data["new_name"]:
-            if _find_entity(data["new_name"]):
+            if _find_entity(data["new_name"], entities):
                 raise HTTPException(400, f"Entity '{data['new_name']}' already exists.")
             ent.name = data["new_name"]
         if "b64_json" in data:
             ent.b64_json = data["b64_json"]
         if "prompt" in data:
             ent.prompt = data["prompt"]
+
     elif action == "delete_entity":
-        ent = _find_entity(data["name"])
+        ent = _find_entity(data["name"], entities)
         if ent is None:
             raise HTTPException(404, "Entity not found.")
-        entities_state.remove(ent)
+        entities.remove(ent)
+
     else:
         raise HTTPException(400, f"Unknown action {action}")
 
-    return extra
-
+    return extras
 
 # ────────────────────────────
 # ░░ API endpoint ░░
 # ────────────────────────────
 
 @app.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest):
-    global story_state, entities_state, MESSAGE_HISTORY
+async def chat(req: ChatRequest):
+    print("\n======= NEW /chat REQUEST =======")
+    print("User input:", req.user_input)
 
-    if req.story is not None:
-        story_state = req.story
-        _normalize_indexes()
-    if req.entities is not None:
-        entities_state = list(req.entities)
+    story: Story = req.story or Story(prompt="")
+    entities: List[StoryEntity] = list(req.entities or [])
+    history: List[dict] = list(req.history or [])
 
-    tool_calls, assistant_output = _intent_agent(req.user_input)
-    print("TOOL_CALS: ", tool_calls, "\n---")
-
-    if not tool_calls:
-        return ChatResponse(
-            mode=Mode.CONTINUE_CHAT,
-            assistant_output=assistant_output,
-            story=story_state,
-            entities=entities_state,
+    try:
+        tool_calls, assistant_output = _intent_agent(
+            req.user_input, story, entities, history
+        )
+    except OpenAIError as e:
+        logger.error("OpenAI call failed: %s", str(e))
+        raise HTTPException(
+            status_code=502,
+            detail=f"OpenAI error: {str(e)}"
         )
 
-    extras = {}
-    for action, payload, tool_call_id in tool_calls:
-        print("Action:", action)
-        extras = _apply_action(action, payload)
-        MESSAGE_HISTORY.append({
-            "role": "tool",
-            "tool_call_id": tool_call_id,
-            "name": action,
-            "content": json.dumps({
-                "prompt": story_state.prompt,
-                "pages": [pg.text for pg in story_state.pages],
-            }),
-        })
+    mode = Mode.CONTINUE_CHAT.value
+    executed_modes: List[Mode] = []
 
-    MESSAGE_HISTORY = MESSAGE_HISTORY[-MAX_HISTORY:]
+    extras = {}
+    if tool_calls:
+        for action, args in tool_calls:
+            print(">> Executing tool:", action, args)
+            action_result = _apply_action(action, args, story, entities)
+            executed_modes.append(Mode(action))
+            extras.update(action_result)
+    else:
+        executed_modes.append(Mode.CONTINUE_CHAT)
+
+    print("Returning response with mode:", mode)
     return ChatResponse(
-        mode=Mode(tool_calls[-1][0]),
+        modes=executed_modes,
         assistant_output=assistant_output,
-        story=story_state,
-        entities=entities_state,
-        image_urls=extras.get("image_urls", None),
+        story=story,
+        entities=entities,
+        history=history,
+        image_b64=extras.get("image_b64")
     )
 
-
-# uvicorn main:app --reload
+# uvicorn main2:app --reload
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

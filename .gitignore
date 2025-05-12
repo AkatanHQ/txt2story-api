@@ -1,6 +1,7 @@
 myenv
 .env
 output
+out_images
 static
 
 

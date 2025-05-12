@@ -1,161 +1,113 @@
-#!/usr/bin/env python3
-"""
-StoryGPT console client (v2.3)
-------------------------------
-
-A tiny REPL that talks to the FastAPI backend at http://localhost:8000/chat.
-It prints **all** fields returned by the ChatResponse model, but in a much more
-structured layout than previous versions: clearly‑labeled sections, neat tables
-for entities, and consistent dividers. It degrades gracefully when optional
-sections (like images) are absent.
-
-Run the server first:
-
-    uvicorn main:app --reload
-
-Then start this client:
-
-    python console_structured.py
-"""
-
-from __future__ import annotations
-
+# console2.py – stateful StoryGPT CLI client with image saving
 import json
 import textwrap
-from typing import Dict, List, Sequence
-
-import requests  # pip install requests
+import os
+import base64
+from datetime import datetime
+from typing import Dict, List
+import requests
 
 API_URL = "http://localhost:8000/chat"
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Utility formatting helpers
-# ──────────────────────────────────────────────────────────────────────────────
-
 DIVIDER = "=" * 70
-SUBDIV  = "-" * 70
-INDENT  = "  "  # two‑space indent keeps things compact yet readable
+SUBDIV = "-" * 70
+INDENT = "  "
+
+# Global state (like a frontend)
+story = {
+    "prompt": "",
+    "pages": []
+}
+
+entities = []
+
+history: List[dict] = []
 
 
-def _format_table(headers: Sequence[str], rows: Sequence[Sequence[str]]) -> str:
-    """Return a monospace table with left‑aligned columns.
+# ─── Formatters ───────────────────────────────────────────────────────────
 
-    Because we avoid extra dependencies, we calculate column widths manually.
-    """
+def _format_table(headers, rows):
     if not rows:
         return INDENT + "(none)"
-
-    # Calculate max width for each column
     widths = [len(h) for h in headers]
     for row in rows:
         widths = [max(w, len(str(cell))) for w, cell in zip(widths, row)]
+    def fmt(row):
+        return INDENT + " | ".join(str(c).ljust(w) for c, w in zip(row, widths))
+    return "\n".join([fmt(headers), INDENT + "-+-".join("-"*w for w in widths)] + [fmt(r) for r in rows])
 
-    def _row(cells: Sequence[str]) -> str:
-        return INDENT + " | ".join(str(c).ljust(w) for c, w in zip(cells, widths))
+def _pp_story(s):
+    out = [f"Prompt: {s.get('prompt', '')}", SUBDIV]
+    for p in s.get("pages", []):
+        t = textwrap.fill(p.get("text", ""), width=66)
+        out.append(f"{INDENT}• Page {p['index']}\n{textwrap.indent(t, INDENT*2)}")
+    return "\n".join(out or [INDENT + "(no pages)"])
 
-    header_line = _row(headers)
-    divider_line = INDENT + "-+-".join("-" * w for w in widths)
-    data_lines = [_row(r) for r in rows]
-    return "\n".join([header_line, divider_line, *data_lines])
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Pretty‑printers for individual top‑level response fields
-# ──────────────────────────────────────────────────────────────────────────────
-
-def _pp_story(story: Dict) -> str:
-    prompt = story.get("prompt", "—")
-    page_lines = []
-    for page in story.get("pages", []):
-        idx = page.get("index", "?")
-        txt = page.get("text", "")
-        wrapped = textwrap.indent(textwrap.fill(txt, 68), INDENT * 2)
-        page_lines.append(f"{INDENT}• page {idx}:\n{wrapped}")
-    pages_block = "\n".join(page_lines) if page_lines else INDENT + "(no pages)"
-    return (
-        f"Story prompt: {prompt}\n"
-        f"{SUBDIV}\n"
-        f"{pages_block}"
-    )
-
-
-def _pp_entities(entities: List[Dict]) -> str:
-    rows = []
-    for ent in entities:
-        name = ent.get("name", "—")
-        has_img = "yes" if ent.get("b64_json") else "no"
-        prompt = ent.get("prompt", "—")
-        rows.append([name, has_img, prompt])
+def _pp_entities(ents):
+    rows = [[e["name"], "yes" if e.get("b64_json") else "no", e.get("prompt", "")] for e in ents]
     return _format_table(["Name", "Img", "Prompt"], rows)
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# User‑facing pretty() combining everything
-# ──────────────────────────────────────────────────────────────────────────────
-
 def pretty(resp: Dict) -> str:
-    """Return a fully‑formatted, human‑readable representation of ChatResponse."""
-    sections: List[str] = []
-
-    # 1) Mode headline
-    mode = resp.get("mode", "—")
-    sections.append(f"{DIVIDER}\nMODE: {mode}\n{DIVIDER}\n")
-
-    # 2) Assistant free‑form reply
-    if (assistant_msg := resp.get("assistant_output")):
-        wrapped = textwrap.indent(textwrap.fill(assistant_msg, 68), INDENT)
-        sections.append("Assistant:\n" + wrapped + "\n")
-
-    # 3) Story section
-    if (story := resp.get("story")):
-        sections.append("Story:" + "\n" + _pp_story(story) + "\n")
-
-    # 4) Entities section
-    if "entities" in resp:
-        sections.append("Entities:\n" + _pp_entities(resp["entities"]) + "\n")
-
-    # 5) Images section
-    if (urls := resp.get("image_urls")):
-        url_lines = "\n".join(f"{INDENT}• {u}" for u in urls)
-        sections.append("Images:\n" + url_lines + "\n")
-
-    # 6) Raw JSON toggle (comment out to hide)
-    # raw_json = json.dumps(resp, indent=2)
-    # sections.append("RAW JSON →\n" + raw_json + "\n")
-
-    # Join all pieces with a thin divider for clarity
-    return ("\n" + SUBDIV + "\n").join(sections).rstrip()
+    sections = [
+        f"{DIVIDER}\nMODE: {resp.get('mode')}\n{DIVIDER}\n"
+    ]
+    if (msg := resp.get("assistant_output")):
+        sections.append("Assistant:\n" + textwrap.indent(textwrap.fill(msg, 66), INDENT))
+    if (s := resp.get("story")):
+        sections.append("Story:\n" + _pp_story(s))
+    if (ents := resp.get("entities")):
+        sections.append("Entities:\n" + _pp_entities(ents))
+    if (imgs := resp.get("image_urls")):
+        sections.append("Images:\n" + "\n".join(f"{INDENT}• {url}" for url in imgs))
+    return ("\n" + SUBDIV + "\n").join(sections)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Networking helpers and REPL loop
-# ──────────────────────────────────────────────────────────────────────────────
+# ─── Main REPL ────────────────────────────────────────────────────────────
 
-def send(user_input: str) -> Dict:
-    """POST user_input to /chat and return the parsed JSON."""
-    resp = requests.post(API_URL, json={"user_input": user_input}, timeout=90)
-    resp.raise_for_status()
-    return resp.json()
+def send(msg: str) -> Dict:
+    global story, entities, history
+    payload = {
+        "user_input": msg,
+        "story": story,
+        "entities": entities,
+        "history": history,
+    }
+    res = requests.post(API_URL, json=payload, timeout=120)
+    res.raise_for_status()
+    data = res.json()
 
+    # update local state
+    story = data.get("story", story)
+    entities = data.get("entities", entities)
+    history = data.get("history", history)
 
-def main() -> None:
-    print("🎬  StoryGPT console client – type 'quit' to exit")
-    try:
-        while True:
-            try:
-                msg = input("\nYou: ").strip()
-            except (EOFError, KeyboardInterrupt):
-                break
-            if msg.lower() in {"quit", "exit"}:
-                break
-            try:
-                response_json = send(msg)
-                print(pretty(response_json))
-            except Exception as exc:
-                print(f"⚠️  Error: {exc}")
-    finally:
-        print("\n👋  Goodbye!")
+    # save image if returned
+    image_b64 = data.get("image_b64")
+    if image_b64:
+        os.makedirs("out_images", exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        out_path = f"out_images/image_{timestamp}.png"
+        with open(out_path, "wb") as f:
+            f.write(base64.b64decode(image_b64))
+        print(f"\n🖼️  Saved generated image to: {out_path}")
+
+    return data
 
 
 if __name__ == "__main__":
-    main()
+    print("📚 StoryGPT (stateful CLI)")
+    print("Type messages to continue the story, 'exit' to quit.\n")
+
+    while True:
+        try:
+            msg = input("You: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\n👋 Bye!")
+            break
+        if msg.lower() in {"exit", "quit"}:
+            break
+        try:
+            response = send(msg)
+            print(pretty(response))
+        except Exception as e:
+            print(f"❌ Error: {e}")
