@@ -257,19 +257,20 @@ def _apply_action(
         if text_prompts:
             prompt += "\n\n" + "\n".join(text_prompts)
 
+        image_b64 = None
+
         if image_files:
             try:
                 result = client.images.edit(
                     model="gpt-image-1",
                     image=image_files,
-                    prompt=prompt
+                    prompt=prompt,
+                    quality="low",
                 )
+                image_b64 = result.data[0].b64_json
             except OpenAIError as e:
                 logger.error("Image generation failed: %s", str(e))
                 raise HTTPException(status_code=502, detail=f"Image generation failed: {str(e)}")
-
-            b64_output = result.data[0].b64_json
-            extras["image_b64"] = b64_output
 
         elif text_prompts:
             try:
@@ -277,17 +278,18 @@ def _apply_action(
                     model="gpt-image-1",
                     prompt=prompt,
                     n=1,
-                    size="1024x1024"
+                    size="1024x1024",
+                    quality="low",
                 )
+                image_b64 = result.data[0].b64_json
             except OpenAIError as e:
                 logger.error("Image generation failed: %s", str(e))
                 raise HTTPException(status_code=502, detail=f"Image generation failed: {str(e)}")
 
-            b64_output = result.data[0].b64_json
-            extras["image_b64"] = b64_output
-
         else:
             raise HTTPException(400, "No valid image files or prompts provided for image generation.")
+
+        return {"image_b64": image_b64}
     elif action == "edit_text":
         idx = data["page"]
         if not 0 <= idx < len(story.pages):
@@ -382,11 +384,13 @@ async def chat(req: ChatRequest):
     mode = Mode.CONTINUE_CHAT.value
     executed_modes: List[Mode] = []
 
+    extras = {}
     if tool_calls:
         for action, args in tool_calls:
             print(">> Executing tool:", action, args)
-            _apply_action(action, args, story, entities)
-            executed_modes.append(Mode(action))          # ← keep them all
+            action_result = _apply_action(action, args, story, entities)
+            executed_modes.append(Mode(action))
+            extras.update(action_result)
     else:
         executed_modes.append(Mode.CONTINUE_CHAT)
 
@@ -397,6 +401,7 @@ async def chat(req: ChatRequest):
         story=story,
         entities=entities,
         history=history,
+        image_b64=extras.get("image_b64")
     )
 
 # uvicorn main:app --reload

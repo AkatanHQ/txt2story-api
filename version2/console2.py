@@ -1,10 +1,9 @@
-# console_stateful.py – stateful StoryGPT CLI client
-# --------------------------------------------------
-# Preserves story, entities, and history between turns.
-# Much like the monolith/frontend would.
-
+# console2.py – stateful StoryGPT CLI client with image saving
 import json
 import textwrap
+import os
+import base64
+from datetime import datetime
 from typing import Dict, List
 import requests
 
@@ -20,9 +19,7 @@ story = {
     "pages": []
 }
 
-entities = [
-    
-]
+entities = []
 
 history: List[dict] = []
 
@@ -83,6 +80,16 @@ def send(msg: str) -> Dict:
     story = data.get("story", story)
     entities = data.get("entities", entities)
     history = data.get("history", history)
+
+    # save image if returned
+    image_b64 = data.get("image_b64")
+    if image_b64:
+        os.makedirs("out_images", exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        out_path = f"out_images/image_{timestamp}.png"
+        with open(out_path, "wb") as f:
+            f.write(base64.b64decode(image_b64))
+        print(f"\n🖼️  Saved generated image to: {out_path}")
 
     return data
 
