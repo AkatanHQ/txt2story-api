@@ -1,5 +1,6 @@
 from __future__ import annotations
-
+from schemas import *
+from tools import *
 """
 StoryGPT Backend – FastAPI + OpenAI 2.2.0
 -----------------------------------------
@@ -29,13 +30,11 @@ import json
 import logging
 import os
 import re
-from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from openai import OpenAI
-from pydantic import BaseModel, Field
 
 # ────────────────────────────
 # ░░ Environment & logging ░░
@@ -49,7 +48,7 @@ logging.basicConfig(
 logger = logging.getLogger("storygpt")
 logger.info("Logging initialised at %s level", LOG_LEVEL)
 
-client = OpenAI()  # reads OPENAI_API_KEY
+client = OpenAI()
 
 # ────────────────────────────
 # ░░ FastAPI app ░░
@@ -57,73 +56,10 @@ client = OpenAI()  # reads OPENAI_API_KEY
 app = FastAPI(title="StoryGPT Backend", version="2.2.0")
 
 # ────────────────────────────
-# ░░ Data models ░░
-# ────────────────────────────
-class Mode(str, Enum):
-    CONTINUE_CHAT = "continue_chat"
-
-    EDIT_TEXT = "edit_text"
-    EDIT_ALL = "edit_all"
-    INSERT_PAGE = "insert_page"
-    DELETE_PAGE = "delete_page"
-    MOVE_PAGE = "move_page"
-    EDIT_STORY_PROMPT = "edit_story_prompt"
-
-    EDIT_IMAGE_PROMPT = "edit_image_prompt"
-
-    # entity CRUD
-    ADD_ENTITY = "add_entity"
-    UPDATE_ENTITY = "update_entity"
-    DELETE_ENTITY = "delete_entity"
-
-
-class StoryImage(BaseModel):
-    index: int
-    prompt: Optional[str] = None        # prompt actually used for this image
-    size:   Optional[str] = None        # 512×512 … 1024×1792
-    quality: Optional[str] = None
-
-
-class StoryEntity(BaseModel):
-    name: str = Field(default="")  # identifier (unique)
-    b64_json: Optional[str] = None  # input image from the user
-    prompt: Optional[str] = None    # input description/prompt from the user
-
-
-class StoryText(BaseModel):
-    index: int
-    text: str = Field(default="")
-
-
-class Story(BaseModel):
-    prompt: str = Field(default="")
-    pages: List[StoryText] = Field(default_factory=list)
-
-
-class ChatRequest(BaseModel):
-    """Frontend payload.
-
-    • `user_input` – the natural-language message.
-    • `story` – optional partial/complete story state coming from the UI.
-    • `entities` – optional list of entities coming from the UI.
-    """
-
-    user_input: str
-    story: Optional[Story] = None
-    entities: Optional[List[StoryEntity]] = None
-
-
-class ChatResponse(BaseModel):
-    mode: Mode
-    assistant_output: Optional[str] = None
-    story: Optional[Story] = None
-    entities: Optional[List[StoryEntity]] = None
-    image_urls: Optional[List[str]] = None
-
-
-# ────────────────────────────
 # ░░ In-memory state ░░
 # ────────────────────────────
+PAGE_COUNT: int = 5  # default number of pages – can be changed any time
+
 story_state = Story(
     prompt="An epic tale begins.",
     pages=[StoryText(index=0, text="Once upon a time …")],
@@ -134,149 +70,7 @@ entities_state: List[StoryEntity] = []
 MAX_HISTORY = 20
 MESSAGE_HISTORY: List[dict] = []  # excludes system prompt
 
-# ────────────────────────────
-# ░░ OpenAI tool definitions ░░
-# ────────────────────────────
-TOOLS: List[Dict] = [
-    {
-        "type": "function",
-        "function": {
-            "name": "edit_text",
-            "description": "Edit the text of a single page by index.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "page": {"type": "integer", "description": "Zero-based page index."},
-                    "new_text": {"type": "string", "description": "Replacement text."},
-                },
-                "required": ["page", "new_text"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "edit_all",
-            "description": "Replace every page with new text entries in order.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "new_texts": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Array of new page texts.",
-                    }
-                },
-                "required": ["new_texts"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "insert_page",
-            "description": "Insert a new page at the given index.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "index": {"type": "integer", "description": "Insert position."},
-                    "text": {"type": "string", "description": "Text for the new page."},
-                },
-                "required": ["index", "text"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "delete_page",
-            "description": "Delete a page at the given index.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "index": {"type": "integer", "description": "Index of the page."}
-                },
-                "required": ["index"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "move_page",
-            "description": "Move a page from one position to another.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "from_index": {"type": "integer", "description": "Current index."},
-                    "to_index": {"type": "integer", "description": "Destination index."},
-                },
-                "required": ["from_index", "to_index"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "edit_story_prompt",
-            "description": "Update the story prompt.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "new_prompt": {"type": "string", "description": "New prompt."}
-                },
-                "required": ["new_prompt"],
-            },
-        },
-    },
-    # Entity CRUD tool calls
-    {
-        "type": "function",
-        "function": {
-            "name": "add_entity",
-            "description": "Add a new entity usable by future story/image generations.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string", "description": "Unique identifier."},
-                    "b64_json": {"type": "string", "description": "Optional base64 image."},
-                    "prompt": {"type": "string", "description": "Optional text description."},
-                },
-                "required": ["name"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "update_entity",
-            "description": "Update an existing entity's prompt and/or image (identified by `name`).",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string", "description": "Identifier to update."},
-                    "b64_json": {"type": "string", "description": "Optional base64 image."},
-                    "prompt": {"type": "string", "description": "Optional text description."},
-                },
-                "required": ["name"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "delete_entity",
-            "description": "Remove an entity by its `name`.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string", "description": "Identifier to remove."}
-                },
-                "required": ["name"],
-            },
-        },
-    }
-]
+
 
 # ────────────────────────────
 # ░░ Helpers ░░
@@ -304,19 +98,36 @@ def _parse_json_or_lines(text: str, expected: int) -> List[str]:
     return pages[:expected]
 
 
-def _generate_initial_pages(prompt: str, num_pages: int = 5) -> List[str]:
-    logger.info("Generating %d pages for prompt", num_pages)
+def _generate_story_pages(prompt: str, num_pages: int = 5, entities: Optional[List[StoryEntity]] = None) -> List[str]:
+\
+    ent_desc = "\n".join(
+        f"- {e.name}: {e.prompt or 'image only'}" for e in (entities or [])
+    ) or "(none)"
+
+    logger.info(
+        "Generating %d pages for prompt with %d entit(y|ies)",
+        num_pages,
+        len(entities or []),
+    )
+
     messages = [
         {
             "role": "system",
             "content": (
-                "You are a creative storyteller. Return *only* a JSON array with exactly {n} "
-                "elements, each 1-2 sentences long, continuing the user's prompt. Do NOT wrap "
-                "in markdown.".format(n=num_pages)
-            ),
+                "You are a creative storyteller. The following reusable story "
+                "entities are available and should be woven naturally into the "
+                "narrative whenever relevant:\n\n"
+                f"{ent_desc}\n\n"
+                "Return *only* a JSON array containing exactly {n} elements. "
+                "Each element must be 1–2 sentences of story text that "
+                "continues the user's prompt. Do **NOT** wrap the array in "
+                "markdown code fences or add any extra keys."
+            ).format(n=num_pages),
         },
         {"role": "user", "content": prompt},
     ]
+
+
     resp = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=messages,
@@ -343,31 +154,42 @@ def _find_entity(name: str) -> Optional[StoryEntity]:
 # ░░ OpenAI chat orchestration ░░
 # ────────────────────────────
 
-def _openai_call(user_msg: str) -> Tuple[List[Tuple[str, dict, str]], Optional[str]]:
+def _intent_agent(user_msg: str) -> Tuple[List[Tuple[str, dict, str]], Optional[str]]:
     global MESSAGE_HISTORY
     MESSAGE_HISTORY.append({"role": "user", "content": user_msg})
     MESSAGE_HISTORY = MESSAGE_HISTORY[-MAX_HISTORY:]
 
     SYSTEM_PROMPT = (
-        f"You are StoryGPT. Decide if the user is chatting or wants to use a tool.\n\n"
-        f"Current story summary:\n"
+        "You are StoryGPT. Decide if the user is chatting or wants to use a tool.\n\n"
+        "If tool use is needed, respond ONLY with the appropriate function call(s).\n\n"
+        "You are allowed to return **multiple tool calls in a single response**. "
+        "Do this when the user message implies a sequence of operations (e.g. "
+        "creating entities and then starting the story).\n\n"
+        "Current story state:\n"
         f"• Pages: {len(story_state.pages)}\n"
-        f"• Entities: {len(entities_state)}\n"
-        f"• Prompt: {story_state.prompt[:120]}{'...' if len(story_state.prompt) > 120 else ''}\n\n"
-        "Tools:\n"
-        "• edit_text – replace text of one page\n"
-        "• edit_all – replace every page\n"
+        f"• Entities ({len(entities_state)}): "
+        f"{', '.join(e.name for e in entities_state) or '–'}\n"
+        f"• Prompt: {story_state.prompt[:120]}{'…' if len(story_state.prompt) > 120 else ''}\n\n"
+        "Available tools:\n"
+        "• edit_story_prompt – replace the story synopsis\n"
+        "• edit_text – replace one page\n"
+        "• edit_all – replace all pages\n"
         "• insert_page – add a page\n"
         "• delete_page – remove a page\n"
         "• move_page – reorder pages\n"
-        "• edit_story_prompt – new synopsis\n"
-        "• add_entity – create a reusable entity (name, image, description)\n"
+        "• add_entity – create a new character/entity\n"
         "• update_entity – update an existing entity\n"
-        "• delete_entity – remove an entity\n"
-        "When you simply want to answer the user, reply with normal assistant text **without** invoking any tool. "
-        "If you need to modify the story or entities, respond ONLY with the relevant function call JSON. "
-        "If no tools really fit, but it is related to story editing, respond with edit_story_prompt."
+        "• delete_entity – remove an entity\n\n"
+        "If no tools make sense, just respond conversationally — but steer the user toward story creation.\n"
+        "If it’s story-related and no tool fits exactly, use edit_story_prompt.\n"
+        "Example:\n"
+            "User: Create two characters and write a story about them.\n"
+            "Tool calls:\n"
+            "1. add_entity → name: Valandor, prompt: A brave warrior…\n"
+            "2. add_entity → name: Lyra, prompt: A healer…\n"
+            "3. edit_story_prompt → new_prompt: A tale of Valandor and Lyra...\n\n"
     )
+
 
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + MESSAGE_HISTORY
@@ -412,12 +234,16 @@ def _apply_action(action: str, data: dict) -> Dict:
     extra: Dict = {}
 
     # Page / story tools (existing)
-    if action == "edit_text":
+    if action == "edit_story_prompt":
+        new_prompt = data["new_prompt"]
+        story_state.prompt = new_prompt
+        pages = _generate_story_pages(new_prompt, entities=entities_state)
+        story_state.pages = [StoryText(index=i, text=p) for i, p in enumerate(pages)]
+    elif action == "edit_text":
         idx = data["page"]
         if not 0 <= idx < len(story_state.pages):
             raise HTTPException(400, "Page index out of range.")
         story_state.pages[idx].text = data["new_text"]
-
     elif action == "edit_all":
         new_texts = data["new_texts"]
         story_state.pages = [StoryText(index=i, text=t) for i, t in enumerate(new_texts)]
@@ -445,12 +271,7 @@ def _apply_action(action: str, data: dict) -> Dict:
         story_state.pages.insert(to, page)
         _normalize_indexes()
 
-    elif action == "edit_story_prompt":
-        new_prompt = data["new_prompt"]
-        story_state.prompt = new_prompt
-        pages = _generate_initial_pages(new_prompt)
-        story_state.pages = [StoryText(index=i, text=p) for i, p in enumerate(pages)]
-
+    
     # Entity tools
     elif action == "add_entity":
         name = data["name"]
@@ -493,10 +314,9 @@ def chat(req: ChatRequest):
     if req.entities is not None:
         entities_state = list(req.entities)
 
-    tool_calls, assistant_output = _openai_call(req.user_input)
+    tool_calls, assistant_output = _intent_agent(req.user_input)
     print("TOOL_CALS: ", tool_calls, "\n---")
 
-    # Normal chat
     if not tool_calls:
         return ChatResponse(
             mode=Mode.CONTINUE_CHAT,
@@ -505,8 +325,9 @@ def chat(req: ChatRequest):
             entities=entities_state,
         )
 
-    # One or more tool calls
+    extras = {}
     for action, payload, tool_call_id in tool_calls:
+        print("Action:", action)
         extras = _apply_action(action, payload)
         MESSAGE_HISTORY.append({
             "role": "tool",
@@ -520,7 +341,8 @@ def chat(req: ChatRequest):
 
     MESSAGE_HISTORY = MESSAGE_HISTORY[-MAX_HISTORY:]
     return ChatResponse(
-        mode=Mode(tool_calls[-1][0]),  # mode of last action
+        mode=Mode(tool_calls[-1][0]),
+        assistant_output=assistant_output,
         story=story_state,
         entities=entities_state,
         image_urls=extras.get("image_urls", None),
