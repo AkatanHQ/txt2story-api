@@ -7,7 +7,7 @@ logger = logging.getLogger("openai-wrapper")
 
 def run_with_retry(
     client_method,            # e.g. client.chat.completions.create
-    max_attempts: int = 5,
+    max_attempts: int = 2,
     base_delay: float = 0.5,  # seconds
     **kwargs,
 ):

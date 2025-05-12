@@ -162,13 +162,14 @@ def _intent_agent(
         "• delete_page – remove a page\n"
         "• move_page – reorder pages\n"
 
-        "• add_entity – create a new character/entity\n"
+        "• add_entity – create a new unique character/entity\n"
         "• update_entity – change an entity’s name (`new_name`), image, or **delete / replace its prompt**"
             " (pass an empty string for `prompt` to clear it)\n"
         "• delete_entity – remove an entity\n\n"
 
         "If no tools make sense, just respond conversationally — but steer the user toward story creation.\n"
         "If it’s story-related and no tool fits exactly, use edit_story_prompt.\n"
+        "Also look at histroy, to make a decision."
         "Example:\n"
             "User: Create two characters and write a story about them.\n"
             "Tool calls:\n"
