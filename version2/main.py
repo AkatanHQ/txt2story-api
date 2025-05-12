@@ -82,7 +82,7 @@ def _clean_json_fence(raw: str) -> str:
     return match.group(0).strip() if match else cleaned
 
 
-def _parse_json_or_lines(text: str, expected: int) -> List[str]:
+def _parse_json_or_lines(text: str) -> List[str]:
     cleaned = _clean_json_fence(text)
     try:
         data = json.loads(cleaned)
@@ -93,20 +93,17 @@ def _parse_json_or_lines(text: str, expected: int) -> List[str]:
             for ln in cleaned.splitlines()
             if ln.strip() and ln.strip() not in {"[", "]"}
         ]
-    if len(pages) < expected:
-        pages += ["…"] * (expected - len(pages))
-    return pages[:expected]
+    return pages
 
 
-def _generate_story_pages(prompt: str, num_pages: int = 5, entities: Optional[List[StoryEntity]] = None) -> List[str]:
+def _generate_story_pages(prompt: str, entities: Optional[List[StoryEntity]] = None) -> List[str]:
 \
     ent_desc = "\n".join(
         f"- {e.name}: {e.prompt or 'image only'}" for e in (entities or [])
     ) or "(none)"
 
     logger.info(
-        "Generating %d pages for prompt with %d entit(y|ies)",
-        num_pages,
+        "Generating pages for prompt with %d entit(y|ies)",
         len(entities or []),
     )
 
@@ -122,7 +119,7 @@ def _generate_story_pages(prompt: str, num_pages: int = 5, entities: Optional[Li
                 "Each element must be 1–2 sentences of story text that "
                 "continues the user's prompt. Do **NOT** wrap the array in "
                 "markdown code fences or add any extra keys."
-            ).format(n=num_pages),
+            ),
         },
         {"role": "user", "content": prompt},
     ]
@@ -135,7 +132,7 @@ def _generate_story_pages(prompt: str, num_pages: int = 5, entities: Optional[Li
         temperature=0.7,
     )
     raw = resp.choices[0].message.content.strip()
-    return _parse_json_or_lines(raw, expected=num_pages)
+    return _parse_json_or_lines(raw)
 
 
 def _normalize_indexes() -> None:
@@ -255,14 +252,12 @@ def _apply_action(action: str, data: dict) -> Dict:
             raise HTTPException(400, "Insert index out of range.")
         story_state.pages.insert(idx, StoryText(index=idx, text=text))
         _normalize_indexes()
-
     elif action == "delete_page":
         idx = data["index"]
         if not 0 <= idx < len(story_state.pages):
             raise HTTPException(400, "Delete index out of range.")
         story_state.pages.pop(idx)
         _normalize_indexes()
-
     elif action == "move_page":
         frm, to = data["from_index"], data["to_index"]
         if not (0 <= frm < len(story_state.pages)) or not (0 <= to < len(story_state.pages)):
@@ -278,7 +273,6 @@ def _apply_action(action: str, data: dict) -> Dict:
         if _find_entity(name):
             raise HTTPException(400, f"Entity '{name}' already exists. Use update_entity instead.")
         entities_state.append(StoryEntity(**data))
-
     elif action == "update_entity":
         ent = _find_entity(data["name"])
         if ent is None:
@@ -287,13 +281,11 @@ def _apply_action(action: str, data: dict) -> Dict:
             ent.b64_json = data["b64_json"]
         if "prompt" in data:
             ent.prompt = data["prompt"]
-
     elif action == "delete_entity":
         ent = _find_entity(data["name"])
         if ent is None:
             raise HTTPException(404, "Entity not found.")
         entities_state.remove(ent)
-
     else:
         raise HTTPException(400, f"Unknown action {action}")
 

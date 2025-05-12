@@ -7,27 +7,6 @@ TOOLS: List[Dict] = [
     {
         "type": "function",
         "function": {
-            "name": "set_page_count",
-            "description": (
-                "Set (or change) the total number of pages for the story. "
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "num_pages": {
-                        "type": "integer",
-                        "minimum": 1,
-                        "maximum": 30,
-                        "description": "Desired page count (1–30).",
-                    }
-                },
-                "required": ["num_pages"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
             "name": "edit_text",
             "description": "Edit the text of a single page by index.",
             "parameters": {
