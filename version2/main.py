@@ -189,6 +189,10 @@ def _intent_agent(
         "If it’s story-related and no tool fits exactly, use edit_story_prompt.\n"
         "Also look at histroy, to make a decision."
         "If tool use is needed, do not reply with natural language. Always return structured tool calls."
+        "- Entities may include an image (b64_json) and a prompt."
+        "   - If both are provided, the prompt should describe visual *modifications* or *extras* to add to the image."
+        "   - If only a prompt is provided, it fully describes the entity."
+
         "Example:\n"
             "User: Create two characters and write a story about them.\n"
             "Tool calls:\n"
@@ -253,7 +257,14 @@ def _apply_action(
         used_entities = [e for e in entities if e.name in entity_names]
 
         image_files = [BytesIO(base64.b64decode(e.b64_json)) for e in used_entities if e.b64_json]
-        text_prompts = [f"{e.name}: {e.prompt}" for e in used_entities if not e.b64_json and e.prompt]
+        text_prompts = []
+        for e in used_entities:
+            if not e.prompt:
+                continue
+            if e.b64_json:
+                text_prompts.append(f"{e.name}: add the following to the image – {e.prompt}")
+            else:
+                text_prompts.append(f"{e.name}: {e.prompt}")
 
         if text_prompts:
             prompt += "\n\n" + "\n".join(text_prompts)

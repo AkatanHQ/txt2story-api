@@ -115,7 +115,6 @@ if __name__ == "__main__":
     manually_add_entity("John", "out_images/Man1.webp", "a young man with brown hair")
     manually_add_entity("Dog", "out_images/dog2.webp", "dog has a hat on")
 
-
     while True:
         try:
             msg = input("You: ").strip()
