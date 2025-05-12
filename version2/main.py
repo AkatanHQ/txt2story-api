@@ -58,7 +58,6 @@ app = FastAPI(title="StoryGPT Backend", version="2.2.0")
 # ────────────────────────────
 # ░░ In-memory state ░░
 # ────────────────────────────
-PAGE_COUNT: int = 5  # default number of pages – can be changed any time
 
 story_state = Story(
     prompt="An epic tale begins.",
