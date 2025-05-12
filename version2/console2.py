@@ -16,12 +16,12 @@ INDENT = "  "
 
 # Global state (like a frontend)
 story = {
-    "prompt": "A fox discovers a hidden city beneath the snow.",
+    "prompt": "",
     "pages": []
 }
 
 entities = [
-    {"name": "Fay", "prompt": "A clever arctic fox with glowing eyes."}
+    
 ]
 
 history: List[dict] = []

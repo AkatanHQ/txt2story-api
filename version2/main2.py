@@ -27,6 +27,7 @@ from schemas import (
 )
 from tools import TOOLS
 from openai_helpers import run_with_retry 
+from openai import OpenAIError
 
 # ────────────────────────────
 # ░░ Environment & logging ░░
@@ -66,23 +67,22 @@ def _parse_json_or_lines(text: str) -> List[str]:
     cleaned = _clean_json_fence(text)
     try:
         data = json.loads(cleaned)
-        pages = (
-            [str(x).strip() for x in data if str(x).strip()]
-            if isinstance(data, list)
-            else []
-        )
-    except json.JSONDecodeError:
-        pages = [
+        if isinstance(data, list) and all(isinstance(x, str) for x in data):
+            return [x.strip() for x in data if x.strip()]
+        raise ValueError("Parsed JSON is not a list of strings.")
+    except Exception as e:
+        logger.warning("Failed to parse JSON properly: %s", e)
+        # Fallback: naive line splitting
+        return [
             re.sub(r"^\s*\d+[).\-]?\s*", "", ln).strip()
             for ln in cleaned.splitlines()
             if ln.strip() and ln.strip() not in {"[", "]"}
         ]
-    return pages
+
 
 
 def _generate_story_pages(
-    prompt: str, *, entities: Optional[List[StoryEntity]] = None, n: int = 5
-) -> List[str]:
+    prompt: str, entities: Optional[List[StoryEntity]] = None) -> List[str]:
     """Call OpenAI to expand the prompt into *n* 1‑2 sentence pages."""
 
     ent_desc = "\n".join(
@@ -99,7 +99,7 @@ def _generate_story_pages(
                 "entities are available and should be woven naturally into the "
                 "narrative whenever relevant:\n\n"
                 f"{ent_desc}\n\n"
-                "Return *only* a JSON array containing exactly {n} elements. "
+                "Return *only* a JSON array."
                 "Each element must be 1–2 sentences of story text that "
                 "continues the user's prompt. Do **NOT** wrap the array in "
                 "markdown code fences or add any extra keys."
@@ -170,6 +170,7 @@ def _intent_agent(
         "If no tools make sense, just respond conversationally — but steer the user toward story creation.\n"
         "If it’s story-related and no tool fits exactly, use edit_story_prompt.\n"
         "Also look at histroy, to make a decision."
+        "If tool use is needed, do not reply with natural language. Always return structured tool calls."
         "Example:\n"
             "User: Create two characters and write a story about them.\n"
             "Tool calls:\n"
@@ -237,6 +238,7 @@ def _apply_action(
     elif action == "edit_all":
         new_texts = data["new_texts"]
         story.pages = [StoryText(index=i, text=t) for i, t in enumerate(new_texts)]
+        _normalize_indexes(story)
 
     elif action == "insert_page":
         idx = data["index"]
@@ -311,12 +313,11 @@ async def chat(req: ChatRequest):
         tool_calls, assistant_output = _intent_agent(
             req.user_input, story, entities, history
         )
-    except openai.InternalServerError:
-        # every retry failed → bubble it up as 503
+    except OpenAIError as e:
+        logger.error("OpenAI call failed: %s", str(e))
         raise HTTPException(
-            status_code=503,
-            detail="Upstream OpenAI service is temporarily unavailable. "
-                   "Please retry in a few seconds."
+            status_code=502,
+            detail=f"OpenAI error: {str(e)}"
         )
 
     mode = Mode.CONTINUE_CHAT.value
