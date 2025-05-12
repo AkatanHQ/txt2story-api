@@ -1,4 +1,4 @@
-# console2.py – stateful StoryGPT CLI client with image saving
+# console.py – stateful StoryGPT CLI client with image saving & entity images
 import json
 import textwrap
 import os
@@ -20,9 +20,7 @@ story = {
 }
 
 entities = []
-
 history: List[dict] = []
-
 
 # ─── Formatters ───────────────────────────────────────────────────────────
 
@@ -61,6 +59,22 @@ def pretty(resp: Dict) -> str:
         sections.append("Images:\n" + "\n".join(f"{INDENT}• {url}" for url in imgs))
     return ("\n" + SUBDIV + "\n").join(sections)
 
+# ─── Helpers ──────────────────────────────────────────────────────────────
+
+def encode_image_b64(filepath: str) -> str:
+    with open(filepath, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
+
+def manually_add_entity(name: str, image_path: str, prompt: str):
+    global entities
+    b64 = encode_image_b64(image_path)
+    new_entity = {
+        "name": name,
+        "b64_json": b64,
+        "prompt": prompt
+    }
+    entities.append(new_entity)
+    print(f"✅ Manually added entity: {name} (image: {image_path})")
 
 # ─── Main REPL ────────────────────────────────────────────────────────────
 
@@ -96,7 +110,11 @@ def send(msg: str) -> Dict:
 
 if __name__ == "__main__":
     print("📚 StoryGPT (stateful CLI)")
-    print("Type messages to continue the story, 'exit' to quit.\n")
+    print("Type messages to continue the story, 'exit' to quit.")
+    print("Special command: add_entity_with_image <name> <image_path> <prompt>\n")
+    manually_add_entity("John", "out_images/Man1.webp", "a young man with brown hair")
+    manually_add_entity("Dog", "out_images/dog2.webp", "dog has a hat on")
+
 
     while True:
         try:
@@ -106,6 +124,16 @@ if __name__ == "__main__":
             break
         if msg.lower() in {"exit", "quit"}:
             break
+
+        if msg.startswith("add_entity_with_image"):
+            try:
+                _, name, path, *prompt_parts = msg.split()
+                prompt = " ".join(prompt_parts)
+                manually_add_entity(name, path, prompt)
+            except Exception as e:
+                print(f"❌ Failed to add entity: {e}")
+            continue
+
         try:
             response = send(msg)
             print(pretty(response))

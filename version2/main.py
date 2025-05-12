@@ -27,6 +27,7 @@ import logging
 import os
 import re
 from typing import Dict, List, Optional, Tuple
+import httpx
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -246,7 +247,7 @@ def _apply_action(
         pages = _generate_story_pages(new_prompt, entities=entities)
         story.pages = [StoryText(index=i, text=p) for i, p in enumerate(pages)]
 
-    elif action == "generate_image":
+    if action == "generate_image":
         prompt = data["prompt"]
         entity_names = data.get("entity_names", [])
         used_entities = [e for e in entities if e.name in entity_names]
@@ -257,39 +258,51 @@ def _apply_action(
         if text_prompts:
             prompt += "\n\n" + "\n".join(text_prompts)
 
-        image_b64 = None
-
         if image_files:
-            try:
-                result = client.images.edit(
-                    model="gpt-image-1",
-                    image=image_files,
-                    prompt=prompt,
-                    quality="low",
-                )
-                image_b64 = result.data[0].b64_json
-            except OpenAIError as e:
-                logger.error("Image generation failed: %s", str(e))
-                raise HTTPException(status_code=502, detail=f"Image generation failed: {str(e)}")
+            # Send as multipart/form-data
+            files = []
+            for i, f in enumerate(image_files):
+                files.append(("image[]", ("entity_image_%d.png" % i, f, "image/png")))
+
+            data = {
+                "model": "gpt-image-1",
+                "prompt": prompt,
+                "quality": "low",
+                "size": "1024x1024"
+            }
+
+            headers = {
+                "Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"
+            }
+
+            response = httpx.post(
+                "https://api.openai.com/v1/images/edits",
+                headers=headers,
+                data=data,
+                files=files,
+                timeout=60
+            )
+
+            if response.status_code != 200:
+                logger.error("Image generation failed: %s", response.text)
+                raise HTTPException(502, "Image generation failed: " + response.text)
+
+            image_b64 = response.json()["data"][0]["b64_json"]
+            return {"image_b64": image_b64}
 
         elif text_prompts:
-            try:
-                result = client.images.generate(
-                    model="gpt-image-1",
-                    prompt=prompt,
-                    n=1,
-                    size="1024x1024",
-                    quality="low",
-                )
-                image_b64 = result.data[0].b64_json
-            except OpenAIError as e:
-                logger.error("Image generation failed: %s", str(e))
-                raise HTTPException(status_code=502, detail=f"Image generation failed: {str(e)}")
+            # No images, generate from text only
+            result = client.images.generate(
+                model="gpt-image-1",
+                prompt=prompt,
+                n=1,
+                size="1024x1024",
+                quality="low",
+            )
+            return {"image_b64": result.data[0].b64_json}
 
         else:
             raise HTTPException(400, "No valid image files or prompts provided for image generation.")
-
-        return {"image_b64": image_b64}
     elif action == "edit_text":
         idx = data["page"]
         if not 0 <= idx < len(story.pages):
