@@ -26,6 +26,7 @@ from schemas import (
     Mode,
 )
 from tools import TOOLS
+from openai_helpers import run_with_retry 
 
 # ────────────────────────────
 # ░░ Environment & logging ░░
@@ -151,13 +152,35 @@ def _intent_agent(
         f"• Pages: {len(story.pages)}\n"
         f"• Entities ({len(entities)}): {', '.join(e.name for e in entities) or '–'}\n"
         f"• Prompt: {story.prompt[:120]}{'…' if len(story.prompt) > 120 else ''}\n\n"
-        "Available tools: see function definitions.\n\n"
-        "If no tools make sense, just respond conversationally — but steer the user toward story creation."
+        "Available tools:\n"
+        "• edit_story_prompt – replace the story synopsis\n"
+
+        "• edit_text – replace one page\n"
+        "• edit_all – replace all pages\n"
+        
+        "• insert_page – add a page\n"
+        "• delete_page – remove a page\n"
+        "• move_page – reorder pages\n"
+
+        "• add_entity – create a new character/entity\n"
+        "• update_entity – change an entity’s name (`new_name`), image, or **delete / replace its prompt**"
+            " (pass an empty string for `prompt` to clear it)\n"
+        "• delete_entity – remove an entity\n\n"
+
+        "If no tools make sense, just respond conversationally — but steer the user toward story creation.\n"
+        "If it’s story-related and no tool fits exactly, use edit_story_prompt.\n"
+        "Example:\n"
+            "User: Create two characters and write a story about them.\n"
+            "Tool calls:\n"
+            "1. add_entity → name: Valandor, prompt: A brave warrior…\n"
+            "2. add_entity → name: Lyra, prompt: A healer…\n"
+            "3. edit_story_prompt → new_prompt: A tale of Valandor and Lyra...\n\n"
     )
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
 
-    resp = client.chat.completions.create(
+    resp = run_with_retry(
+        client.chat.completions.create,
         model="gpt-4o-mini",
         messages=messages,
         tools=TOOLS,
@@ -170,7 +193,7 @@ def _intent_agent(
     assistant_output: Optional[str] = None
 
     if msg.tool_calls:
-        history.append({"role": "assistant", "content": None})
+        history.append({"role": "assistant", "content": ""})
         for call in msg.tool_calls:
             try:
                 args = json.loads(call.function.arguments or "{}")
@@ -241,7 +264,9 @@ def _apply_action(
     elif action == "add_entity":
         name = data["name"]
         if _find_entity(name, entities):
-            raise HTTPException(400, f"Entity '{name}' already exists. Use update_entity instead.")
+            # Silently turn it into an update instead of bombing out
+            action = "update_entity"
+            data = {"name": name, **data}
         entities.append(StoryEntity(**data))
 
     elif action == "update_entity":
@@ -281,20 +306,32 @@ async def chat(req: ChatRequest):
     entities: List[StoryEntity] = list(req.entities or [])
     history: List[dict] = list(req.history or [])
 
-    tool_calls, assistant_output = _intent_agent(req.user_input, story, entities, history)
+    try:
+        tool_calls, assistant_output = _intent_agent(
+            req.user_input, story, entities, history
+        )
+    except openai.InternalServerError:
+        # every retry failed → bubble it up as 503
+        raise HTTPException(
+            status_code=503,
+            detail="Upstream OpenAI service is temporarily unavailable. "
+                   "Please retry in a few seconds."
+        )
 
     mode = Mode.CONTINUE_CHAT.value
+    executed_modes: List[Mode] = []
+
     if tool_calls:
         for action, args in tool_calls:
+            print(">> Executing tool:", action, args)
             _apply_action(action, args, story, entities)
-            mode = action  # name of the last tool executed
-
-    if not tool_calls and not assistant_output:
-        assistant_output = "(no response)"
+            executed_modes.append(Mode(action))          # ← keep them all
+    else:
+        executed_modes.append(Mode.CONTINUE_CHAT)
 
     print("Returning response with mode:", mode)
     return ChatResponse(
-        mode=mode,
+        modes=executed_modes,
         assistant_output=assistant_output,
         story=story,
         entities=entities,

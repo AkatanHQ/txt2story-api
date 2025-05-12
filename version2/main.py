@@ -207,7 +207,7 @@ def _intent_agent(user_msg: str) -> Tuple[List[Tuple[str, dict, str]], Optional[
     if msg.tool_calls:
         MESSAGE_HISTORY.append({
             "role": "assistant",
-            "content": None,
+            "content": "",
             "tool_calls": msg.tool_calls,
         })
 

@@ -100,7 +100,7 @@ TOOLS: List[Dict] = [
         "type": "function",
         "function": {
             "name": "add_entity",
-            "description": "Add a new entity usable by future story/image generations.",
+            "description": "Add a new entity usable by future story/image generations. Make it unique",
             "parameters": {
                 "type": "object",
                 "properties": {

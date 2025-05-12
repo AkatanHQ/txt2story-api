@@ -60,7 +60,7 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    mode: Mode
+    modes: List[Mode]
     assistant_output: Optional[str] = None
     story: Optional[Story] = None
     entities: Optional[List[StoryEntity]] = None
