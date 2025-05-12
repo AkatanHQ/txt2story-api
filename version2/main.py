@@ -169,14 +169,19 @@ def _intent_agent(user_msg: str) -> Tuple[List[Tuple[str, dict, str]], Optional[
         f"• Prompt: {story_state.prompt[:120]}{'…' if len(story_state.prompt) > 120 else ''}\n\n"
         "Available tools:\n"
         "• edit_story_prompt – replace the story synopsis\n"
+
         "• edit_text – replace one page\n"
         "• edit_all – replace all pages\n"
+        
         "• insert_page – add a page\n"
         "• delete_page – remove a page\n"
         "• move_page – reorder pages\n"
+
         "• add_entity – create a new character/entity\n"
-        "• update_entity – update an existing entity\n"
+        "• update_entity – change an entity’s name (`new_name`), image, or **delete / replace its prompt**"
+            " (pass an empty string for `prompt` to clear it)\n"
         "• delete_entity – remove an entity\n\n"
+
         "If no tools make sense, just respond conversationally — but steer the user toward story creation.\n"
         "If it’s story-related and no tool fits exactly, use edit_story_prompt.\n"
         "Example:\n"
@@ -277,6 +282,10 @@ def _apply_action(action: str, data: dict) -> Dict:
         ent = _find_entity(data["name"])
         if ent is None:
             raise HTTPException(404, "Entity not found.")
+        if "new_name" in data and data["new_name"]:
+            if _find_entity(data["new_name"]):
+                raise HTTPException(400, f"Entity '{data['new_name']}' already exists.")
+            ent.name = data["new_name"]
         if "b64_json" in data:
             ent.b64_json = data["b64_json"]
         if "prompt" in data:

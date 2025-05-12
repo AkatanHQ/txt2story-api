@@ -116,13 +116,16 @@ TOOLS: List[Dict] = [
         "type": "function",
         "function": {
             "name": "update_entity",
-            "description": "Update an existing entity's prompt and/or image (identified by `name`).",
+            "description": "Update an existing entity, identified by `name`.\n"
+                            "You can change any subset of: `new_name`, `prompt`, `b64_json`.\n"
+                            "If multiple fields are supplied they’re all applied atomically.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "name": {"type": "string", "description": "Identifier to update."},
-                    "b64_json": {"type": "string", "description": "Optional base64 image."},
-                    "prompt": {"type": "string", "description": "Optional text description."},
+                    "new_name":  {"type": "string", "description": "New identifier (must be unique)."},
+                    "b64_json":  {"type": "string", "description": "New base64 image data."},
+                    "prompt":    {"type": "string", "description": "New text description/prompt."}
                 },
                 "required": ["name"],
             },
