@@ -56,6 +56,7 @@ class ChatRequest(BaseModel):
     user_input: str
     story: Optional[Story] = None
     entities: Optional[List[StoryEntity]] = None
+    history: Optional[List[dict]] = None
 
 
 class ChatResponse(BaseModel):
@@ -64,4 +65,5 @@ class ChatResponse(BaseModel):
     story: Optional[Story] = None
     entities: Optional[List[StoryEntity]] = None
     image_urls: Optional[List[str]] = None
+    history: Optional[List[dict]] = None
 
