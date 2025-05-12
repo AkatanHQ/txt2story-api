@@ -8,6 +8,8 @@ from enum import Enum
 class Mode(str, Enum):
     CONTINUE_CHAT = "continue_chat"
 
+    GENERATE_IMAGE ="generate_image"
+
     EDIT_TEXT = "edit_text"
     EDIT_ALL = "edit_all"
     INSERT_PAGE = "insert_page"
@@ -64,6 +66,6 @@ class ChatResponse(BaseModel):
     assistant_output: Optional[str] = None
     story: Optional[Story] = None
     entities: Optional[List[StoryEntity]] = None
-    image_urls: Optional[List[str]] = None
+    image_b64: Optional[str] = None
     history: Optional[List[dict]] = None
 

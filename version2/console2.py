@@ -75,7 +75,7 @@ def send(msg: str) -> Dict:
         "entities": entities,
         "history": history,
     }
-    res = requests.post(API_URL, json=payload, timeout=30)
+    res = requests.post(API_URL, json=payload, timeout=120)
     res.raise_for_status()
     data = res.json()
 

@@ -6,6 +6,25 @@ from typing import Dict, List, Optional, Tuple
 TOOLS: List[Dict] = [
     {
         "type": "function",
+            "function": {
+            "name": "generate_image",
+            "description": "Generate an image using the GPT-image model with optional entity inputs as references. If an entity has no image, its prompt is used.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "prompt": {"type": "string", "description": "Prompt for the image."},
+                    "entity_names": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Names of entities to include in the image generation."
+                    }
+                },
+                "required": ["prompt"]
+            }
+        }
+    },
+    {
+        "type": "function",
         "function": {
             "name": "edit_text",
             "description": "Edit the text of a single page by index.",

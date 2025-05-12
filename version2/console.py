@@ -133,7 +133,7 @@ def pretty(resp: Dict) -> str:
 
 def send(user_input: str) -> Dict:
     """POST user_input to /chat and return the parsed JSON."""
-    resp = requests.post(API_URL, json={"user_input": user_input}, timeout=30)
+    resp = requests.post(API_URL, json={"user_input": user_input}, timeout=90)
     resp.raise_for_status()
     return resp.json()
 

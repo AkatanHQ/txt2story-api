@@ -5,6 +5,21 @@ StoryGPT Backend – FastAPI + OpenAI 2.2.1 (stateless)
 
 This version refactors the `/chat` endpoint to be fully **stateless** per request
 and async‑friendly, matching the signature the frontend now expects.
+----------------------------------------------------
+
+Information:
+Inputs
+- Story holds the generate structure,
+- storytext holds the text of 1 page of the story
+- storyimage holds the prompt,size and quality of 1 page of the story
+- Entities are given by the user and have a name (as id), possibly an image and a prompt
+
+Dependencies/Relations
+- The entities are input for when generating a new story, such that the AI know what entities to use in the story
+- When generating an image, the input-prompt for AI will be: the StoryImage + the entities that are mentioned in the prompt 
+  - 1 entity includes an image + prompt, and by referencing it correctly in the input for the ai
+- When generating a new story, the input-prompt for AI will be: the prompt + the entities, such that the AI knows how to use and who to use in the story.
+- In the ImagePrompt, if a entitity is needed as input, it will reference it by the name/id
 """
 
 import json
@@ -28,6 +43,8 @@ from schemas import (
 from tools import TOOLS
 from openai_helpers import run_with_retry 
 from openai import OpenAIError
+from io import BytesIO
+import base64
 
 # ────────────────────────────
 # ░░ Environment & logging ░░
@@ -229,6 +246,48 @@ def _apply_action(
         pages = _generate_story_pages(new_prompt, entities=entities)
         story.pages = [StoryText(index=i, text=p) for i, p in enumerate(pages)]
 
+    elif action == "generate_image":
+        prompt = data["prompt"]
+        entity_names = data.get("entity_names", [])
+        used_entities = [e for e in entities if e.name in entity_names]
+
+        image_files = [BytesIO(base64.b64decode(e.b64_json)) for e in used_entities if e.b64_json]
+        text_prompts = [f"{e.name}: {e.prompt}" for e in used_entities if not e.b64_json and e.prompt]
+
+        if text_prompts:
+            prompt += "\n\n" + "\n".join(text_prompts)
+
+        if image_files:
+            try:
+                result = client.images.edit(
+                    model="gpt-image-1",
+                    image=image_files,
+                    prompt=prompt
+                )
+            except OpenAIError as e:
+                logger.error("Image generation failed: %s", str(e))
+                raise HTTPException(status_code=502, detail=f"Image generation failed: {str(e)}")
+
+            b64_output = result.data[0].b64_json
+            extras["image_b64"] = b64_output
+
+        elif text_prompts:
+            try:
+                result = client.images.generate(
+                    model="gpt-image-1",
+                    prompt=prompt,
+                    n=1,
+                    size="1024x1024"
+                )
+            except OpenAIError as e:
+                logger.error("Image generation failed: %s", str(e))
+                raise HTTPException(status_code=502, detail=f"Image generation failed: {str(e)}")
+
+            b64_output = result.data[0].b64_json
+            extras["image_b64"] = b64_output
+
+        else:
+            raise HTTPException(400, "No valid image files or prompts provided for image generation.")
     elif action == "edit_text":
         idx = data["page"]
         if not 0 <= idx < len(story.pages):
