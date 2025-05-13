@@ -219,15 +219,16 @@ def _intent_agent(
 
         "• edit_image_prompt – Edit the stored *prompt / size / quality* metadata of an existing page image (does NOT regenerate the image).\n\n"
         "- If the user asks to add or update image prompts, iterate over existing pages and call edit_image_prompt for each page index."
-        # "• generate_image – Generate an image with optional entity inputs as references.\n\n"
-        # "• generate_image_for_index – Generate an image for a specific page index.\n\n"
+        "• generate_image – Generate an image with optional entity inputs as references.\n\n"
+        "• generate_image_for_index – Generate an image for a specific page index.\n\n"
 
         "- If no tools make sense, just respond conversationally — but steer the user toward story creation.\n"
         "- If it’s story-related and no tool fits exactly, use edit_story_prompt.\n"
-        "- Also look at histroy, to make a decision."
-        "- Entities may include an image (b64_json) and a prompt."
-        "   - If both are provided, the prompt should describe visual *modifications* or *extras* to add to the image."
-        "   - If only a prompt is provided, it fully describes the entity."
+        "- Also look at histroy, to make a decision.\n"
+        "- Only generate images if specifically asked.\n"
+        "- Entities may include an image (b64_json) and a prompt.\n"
+        "   - If both are provided, the prompt should describe visual *modifications* or *extras* to add to the image.\n"
+        "   - If only a prompt is provided, it fully describes the entity.\n"
 
         "Example:\n"
             "User: Create two characters and write a story about them.\n"
