@@ -8,16 +8,19 @@ from enum import Enum
 class Mode(str, Enum):
     CONTINUE_CHAT = "continue_chat"
 
-    GENERATE_IMAGE ="generate_image"
+    EDIT_STORY_PROMPT = "edit_story_prompt"
 
     EDIT_TEXT = "edit_text"
     EDIT_ALL = "edit_all"
+
     INSERT_PAGE = "insert_page"
     DELETE_PAGE = "delete_page"
     MOVE_PAGE = "move_page"
-    EDIT_STORY_PROMPT = "edit_story_prompt"
+
 
     EDIT_IMAGE_PROMPT = "edit_image_prompt"
+    GENERATE_IMAGE_FOR_INDEX = "generate_image_for_index"
+    GENERATE_IMAGE ="generate_image"
 
     # entity CRUD
     ADD_ENTITY = "add_entity"

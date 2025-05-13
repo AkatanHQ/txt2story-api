@@ -132,6 +132,14 @@ def send(msg: str) -> Dict:
             f.write(base64.b64decode(image_b64))
         loose_paths.append(out_path)
 
+    for img in (story.get("images") or []):
+        if img and img.get("image_b64"):
+            index = img.get("index", "unknown")
+            filename = f"out_images/page_{index}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+            with open(filename, "wb") as f:
+                f.write(base64.b64decode(img["image_b64"]))
+            loose_paths.append(filename)
+
     # pass those filenames back to pretty()
     if loose_paths:
         data["_loose_image_paths"] = loose_paths

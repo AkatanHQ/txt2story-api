@@ -28,7 +28,7 @@ TOOLS: List[Dict] = [
         "type": "function",
         "function": {
             "name": "generate_image_for_index",
-            "description": "Generate an image for a given page index; store it on that page index.",
+            "description": "Generate an image for a specific page index. store it on that page index.",
             "parameters": {
             "type": "object",
             "properties": {

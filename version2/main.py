@@ -104,8 +104,7 @@ def _parse_json_or_lines(text: str) -> List[str]:
 
 
 
-def _generate_story_pages(
-    prompt: str, entities: Optional[List[StoryEntity]] = None) -> List[str]:
+def _generate_story_pages(prompt: str, entities: Optional[List[StoryEntity]] = None) -> List[str]:
     """Call OpenAI to expand the prompt into *n* 1‑2 sentence pages."""
 
     ent_desc = "\n".join(
@@ -118,15 +117,29 @@ def _generate_story_pages(
         {
             "role": "system",
             "content": (
-                "You are a creative storyteller. The following reusable story "
-                "entities are available and should be woven naturally into the "
-                "narrative whenever relevant:\n\n"
-                f"{ent_desc}\n\n"
-                "Return *only* a JSON array of 1–2 sentence story passages. "
-                "Each array element should continue the user's prompt. "
-                "DO NOT include any labels like 'Page 1:', 'Page 2:', etc. "
-                "Each item should be plain story text. "
-                "DO NOT use markdown or wrap the response in code fences."
+                "You are a creative and concise children's story writer. You will receive a short story prompt and a list of reusable story entities (characters or important elements)."
+
+            "Your task is to continue the story by generating a JSON array of short story segments (1–2 sentences each). These will become the pages of a picture book."
+
+            "📌 Unless the user explicitly specifies otherwise, generate exactly **5** story pages.\n\n"
+
+            "\n\nEach item in the array should:\n"
+            "- Flow naturally from the previous segments.\n"
+            "- Be plain English narrative (not dialogue-only, not poetry).\n"
+            "- Be simple enough for children to understand.\n"
+            "- Use the listed entities where relevant, integrating them naturally.\n"
+
+            "\n\nImportant formatting rules:\n"
+            "- Return ONLY a valid **JSON array** of strings. Example:\n"
+            "  [\"John picked up a stick.\", \"The dog wagged its tail excitedly.\"]\n"
+            "- **Do NOT** include any labels like 'Page 1:', 'Page 2:', etc.\n"
+            "- **Do NOT** use markdown, quotes, bullets, or code blocks.\n"
+            "- **Do NOT** wrap the array in triple backticks or fences.\n"
+            "- **Each array element must be plain story text only.**\n"
+
+            "\nReusable entities you may use in the story:\n"
+            f"{ent_desc or '(none)'}"
+
             ),
         },
         {"role": "user", "content": prompt},
@@ -194,6 +207,10 @@ def _intent_agent(
         "If you intend to use tools, DO NOT reply in natural language. ONLY return tool_calls using the OpenAI tools format."
         "You are allowed to return **multiple tool calls in a single response**.\n\n"
         "Always consider history as well, but focus on the most recent questions."
+        "- Never generate images unless the user clearly says to (e.g. 'generate images', 'create illustrations').\n"
+        "- If the user says something like 'give image prompts' or 'what would the image look like', call `edit_image_prompt` or suggest prompts, but DO NOT call `generate_image` or `generate_image_for_index`.\n"
+        "-If generation of images is asked, first do the image prompts."
+
 
         "Current story state:\n"
         f"• Pages: {len(story.pages)}\n"
@@ -218,9 +235,9 @@ def _intent_agent(
         "• delete_entity – remove an entity\n\n"
 
         "• edit_image_prompt – Edit the stored *prompt / size / quality* metadata of an existing page image (does NOT regenerate the image).\n\n"
-        "- If the user asks to add or update image prompts, iterate over existing pages and call edit_image_prompt for each page index."
-        "• generate_image – Generate an image with optional entity inputs as references.\n\n"
-        "• generate_image_for_index – Generate an image for a specific page index.\n\n"
+            "- If the user asks to add or update image prompts, iterate over existing pages and call edit_image_prompt for each page index."
+        "• generate_image_for_index – Use this when the user requests an image **for a specific page** (e.g. 'generate image for page 1', 'illustrate the second page'). Always prefer this over `generate_image` when the target is a specific story page."
+        "• generate_image – Only use when the user wants a general illustration, not tied to a story page (e.g. 'draw the characters', 'make a cover')."
 
         "- If no tools make sense, just respond conversationally — but steer the user toward story creation.\n"
         "- If it’s story-related and no tool fits exactly, use edit_story_prompt.\n"
@@ -377,7 +394,6 @@ def _apply_action(
         pages = _generate_story_pages(new_prompt, entities=entities)
         story.pages = [StoryText(index=i, text=p) for i, p in enumerate(pages)]
 
-    # 2️⃣  inside _apply_action → edit_story_prompt branch
     elif action == "edit_image_prompt":
         # The only job here is to update the stored metadata of ONE page-image.
         # Absolutely no story text or page list should change.
@@ -410,8 +426,8 @@ def _apply_action(
         page_idx      = data["page"]
         prompt        = data["prompt"]
         entity_names  = data.get("entity_names", [])
-        size    = data.get("size", "1024x1024"),
-        quality = data.get("quality", "low"),
+        size    = data.get("size", "1024x1024")
+        quality = data.get("quality", "low")
 
         image_b64 = _generate_image(
                 prompt=prompt,
