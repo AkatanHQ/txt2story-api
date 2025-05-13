@@ -196,8 +196,6 @@ def _intent_agent(
         "• delete_entity – remove an entity\n\n"
 
         "• generate_image – Generate an image with optional entity inputs as references.\n\n"
-        "• generate_image_for_index – Generate an image for a specific page / index\n\n"
-
 
         "- If no tools make sense, just respond conversationally — but steer the user toward story creation.\n"
         "- If it’s story-related and no tool fits exactly, use edit_story_prompt.\n"
@@ -246,6 +244,76 @@ def _intent_agent(
 # ────────────────────────────
 # ░░ Apply actions ░░
 # ────────────────────────────
+def _generate_image(
+    *,
+    prompt: str,
+    entity_names: List[str],
+    entities: List[StoryEntity],
+    size: str = "1024x1024",
+    quality: str = "low",
+) -> str:                     # returns image_b64    image_files = [BytesIO(base64.b64decode(e.b64_json)) for e in used_entities if e.b64_json]
+    
+    used_entities = [e for e in entities if e.name in entity_names]
+    image_files = [BytesIO(base64.b64decode(e.b64_json)) for e in used_entities if e.b64_json]
+    
+    text_prompts = []
+    for e in entities:
+        if not e.prompt:
+            continue
+        if e.b64_json:
+            text_prompts.append(f"{e.name}: add the following to the image – {e.prompt}")
+        else:
+            text_prompts.append(f"{e.name}: {e.prompt}")
+
+    if text_prompts:
+        prompt += "\n\n" + "\n".join(text_prompts)
+
+    if image_files:
+        # Send as multipart/form-data
+        files = []
+        for i, f in enumerate(image_files):
+            files.append(("image[]", ("entity_image_%d.png" % i, f, "image/png")))
+
+        data = {
+            "model": "gpt-image-1",
+            "prompt": prompt,
+            "quality": "low",
+            "size": "1024x1024"
+        }
+
+        headers = {
+            "Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"
+        }
+
+        response = httpx.post(
+            "https://api.openai.com/v1/images/edits",
+            headers=headers,
+            data=data,
+            files=files,
+            timeout=300
+        )
+
+        if response.status_code != 200:
+            logger.error("Image generation failed: %s", response.text)
+            raise HTTPException(502, "Image generation failed: " + response.text)
+
+        image_b64 = response.json()["data"][0]["b64_json"]
+        return image_b64
+
+    elif text_prompts:
+        # No images, generate from text only
+        result = client.images.generate(
+            model="gpt-image-1",
+            prompt=prompt,
+            n=1,
+            size="1024x1024",
+            quality="low",
+        )
+        return result.data[0].b64_json
+
+    else:
+        raise HTTPException(400, "No valid image files or prompts provided for image generation.")
+    
 def _render_image(
     *,
     prompt: str,
@@ -294,6 +362,7 @@ def _render_image(
             headers=headers,
             data=payload,
             files=files,
+            timeout=60
         )
         if r.status_code != 200:
             logger.error("Image generation failed: %s", r.text)
@@ -330,48 +399,40 @@ def _apply_action(
 
     
     elif action == "generate_image_for_index":
-        page_idx     = data["page"]
-        prompt       = data["prompt"]
-        entity_names = data.get("entity_names", [])
-        size         = data.get("size",    "1024x1024")
-        quality      = data.get("quality", "low")
+        page_idx      = data["page"]
+        prompt        = data["prompt"]
+        entity_names  = data.get("entity_names", [])
 
-        image_b64 = _render_image(
-            prompt=prompt,
-            entity_names=entity_names,
-            entities=entities,
-            size=size,
-            quality=quality,
-        )
 
+
+        # result is `image_b64` (string) after you’ve called the image API
         img_cfg = StoryImage(
             index   = page_idx,
             prompt  = prompt,
-            size    = size,
-            quality = quality,
+            size    = data.get("size", "1024x1024"),
+            quality = data.get("quality", "low"),
             b64_json= image_b64,
         )
 
-        # make sure the list is long enough, then store
+        # ensure we have a slot for this page
         if len(story.images) <= page_idx:
             story.images.extend([None] * (page_idx + 1 - len(story.images)))
         story.images[page_idx] = img_cfg
-        return {}                           # no extras
 
-    elif action == "generate_image":        # generic, just hand back b64
-        prompt       = data["prompt"]
+        # nothing for extras now
+        return {}
+
+    elif action == "generate_image":
+        prompt = data["prompt"]
         entity_names = data.get("entity_names", [])
-        size         = data.get("size",    "1024x1024")
-        quality      = data.get("quality", "low")
 
-        image_b64 = _render_image(
-            prompt=prompt,
-            entity_names=entity_names,
-            entities=entities,
-            size=size,
-            quality=quality,
-        )
+        image_b64 = _generate_image(
+                prompt=prompt,
+                entity_names=entity_names,
+                entities=entities,
+            )
         return {"image_b64": image_b64}
+        
     elif action == "edit_text":
         idx = data["page"]
         if not 0 <= idx < len(story.pages):
