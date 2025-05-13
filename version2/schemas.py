@@ -29,7 +29,8 @@ class StoryImage(BaseModel):
     index: int
     prompt: Optional[str] = None        # prompt actually used for this image
     size:   Optional[str] = None        # 512×512 … 1024×1792
-    quality: Optional[str] = None
+    quality: Optional[str] = None       # low / medium / high
+    b64_json: Optional[str] = None      # base64 of the generated PNG
 
 
 class StoryEntity(BaseModel):
@@ -46,6 +47,7 @@ class StoryText(BaseModel):
 class Story(BaseModel):
     prompt: str = Field(default="")
     pages: List[StoryText] = Field(default_factory=list)
+    images: List[StoryImage] = Field(default_factory=list)
 
 
 class ChatRequest(BaseModel):

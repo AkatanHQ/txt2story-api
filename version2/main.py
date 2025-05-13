@@ -40,6 +40,7 @@ from schemas import (
     ChatRequest,
     ChatResponse,
     Mode,
+    StoryImage,
 )
 from tools import TOOLS
 from openai_helpers import run_with_retry 
@@ -83,8 +84,11 @@ def _clean_json_fence(raw: str) -> str:
 
 def _parse_json_or_lines(text: str) -> List[str]:
     cleaned = _clean_json_fence(text)
+    print("parsing")
     try:
         data = json.loads(cleaned)
+        if isinstance(data, dict) and "pages" in data:
+            data = data["pages"]
         if isinstance(data, list) and all(isinstance(x, str) for x in data):
             return [x.strip() for x in data if x.strip()]
         raise ValueError("Parsed JSON is not a list of strings.")
@@ -96,6 +100,7 @@ def _parse_json_or_lines(text: str) -> List[str]:
             for ln in cleaned.splitlines()
             if ln.strip() and ln.strip() not in {"[", "]"}
         ]
+
 
 
 
@@ -117,10 +122,11 @@ def _generate_story_pages(
                 "entities are available and should be woven naturally into the "
                 "narrative whenever relevant:\n\n"
                 f"{ent_desc}\n\n"
-                "Return *only* a JSON array."
-                "Each element must be 1–2 sentences of story text that "
-                "continues the user's prompt. Do **NOT** wrap the array in "
-                "markdown code fences or add any extra keys."
+                "Return *only* a JSON array of 1–2 sentence story passages. "
+                "Each array element should continue the user's prompt. "
+                "DO NOT include any labels like 'Page 1:', 'Page 2:', etc. "
+                "Each item should be plain story text. "
+                "DO NOT use markdown or wrap the response in code fences."
             ),
         },
         {"role": "user", "content": prompt},
@@ -165,11 +171,15 @@ def _intent_agent(
     SYSTEM_PROMPT = (
         "You are StoryGPT. Decide if the user is chatting or wants to use a tool.\n\n"
         "If tool use is needed, respond ONLY with the appropriate function call(s).\n\n"
+        "If you intend to use tools, DO NOT reply in natural language. ONLY return tool_calls using the OpenAI tools format."
         "You are allowed to return **multiple tool calls in a single response**.\n\n"
+        "Always consider history as well, but focus on the most recent questions."
+
         "Current story state:\n"
         f"• Pages: {len(story.pages)}\n"
         f"• Entities ({len(entities)}): {', '.join(e.name for e in entities) or '–'}\n"
         f"• Prompt: {story.prompt[:120]}{'…' if len(story.prompt) > 120 else ''}\n\n"
+
         "Available tools:\n"
         "• edit_story_prompt – replace the story synopsis\n"
 
@@ -185,10 +195,13 @@ def _intent_agent(
             " (pass an empty string for `prompt` to clear it)\n"
         "• delete_entity – remove an entity\n\n"
 
-        "If no tools make sense, just respond conversationally — but steer the user toward story creation.\n"
-        "If it’s story-related and no tool fits exactly, use edit_story_prompt.\n"
-        "Also look at histroy, to make a decision."
-        "If tool use is needed, do not reply with natural language. Always return structured tool calls."
+        "• generate_image – Generate an image with optional entity inputs as references.\n\n"
+        "• generate_image_for_index – Generate an image for a specific page / index\n\n"
+
+
+        "- If no tools make sense, just respond conversationally — but steer the user toward story creation.\n"
+        "- If it’s story-related and no tool fits exactly, use edit_story_prompt.\n"
+        "- Also look at histroy, to make a decision."
         "- Entities may include an image (b64_json) and a prompt."
         "   - If both are provided, the prompt should describe visual *modifications* or *extras* to add to the image."
         "   - If only a prompt is provided, it fully describes the entity."
@@ -233,6 +246,70 @@ def _intent_agent(
 # ────────────────────────────
 # ░░ Apply actions ░░
 # ────────────────────────────
+def _render_image(
+    *,
+    prompt: str,
+    entity_names: List[str],
+    entities: List[StoryEntity],
+    size: str = "1024x1024",
+    quality: str = "low",
+) -> str:                     # returns image_b64
+    """
+    Build a prompt that stitches in any referenced entities, perform the
+    OpenAI image (edit or generate) call, and return the resulting base-64
+    PNG.  This is used by both `generate_image_for_index` and `generate_image`.
+    """
+    used_ents   = [e for e in entities if e.name in entity_names]
+
+    image_files = [
+        BytesIO(base64.b64decode(e.b64_json))
+        for e in used_ents if e.b64_json
+    ]
+
+    # add entity-level instructions onto the prompt
+    extra_lines = []
+    for e in used_ents:
+        if not e.prompt:
+            continue
+        if e.b64_json:
+            extra_lines.append(f"{e.name}: add the following to the image – {e.prompt}")
+        else:
+            extra_lines.append(f"{e.name}: {e.prompt}")
+    if extra_lines:
+        prompt = f"{prompt}\n\n" + "\n".join(extra_lines)
+
+    # ——— call OpenAI ———
+    if image_files:                                   # image *edit*
+        files   = [("image[]", (f"ent_{i}.png", f, "image/png"))
+                   for i, f in enumerate(image_files)]
+        payload = {
+            "model":   "gpt-image-1",
+            "prompt":  prompt,
+            "quality": quality,
+            "size":    size,
+        }
+        headers = {"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"}
+        r = httpx.post(
+            "https://api.openai.com/v1/images/edits",
+            headers=headers,
+            data=payload,
+            files=files,
+        )
+        if r.status_code != 200:
+            logger.error("Image generation failed: %s", r.text)
+            raise HTTPException(502, "Image generation failed: " + r.text)
+        return r.json()["data"][0]["b64_json"]
+
+    else:                                             # pure text *generate*
+        result = client.images.generate(
+            model="gpt-image-1",
+            prompt=prompt,
+            n=1,
+            size=size,
+            quality=quality,
+        )
+        return result.data[0].b64_json
+
 
 def _apply_action(
     action: str,
@@ -251,69 +328,50 @@ def _apply_action(
         pages = _generate_story_pages(new_prompt, entities=entities)
         story.pages = [StoryText(index=i, text=p) for i, p in enumerate(pages)]
 
-    if action == "generate_image":
-        prompt = data["prompt"]
+    
+    elif action == "generate_image_for_index":
+        page_idx     = data["page"]
+        prompt       = data["prompt"]
         entity_names = data.get("entity_names", [])
-        used_entities = [e for e in entities if e.name in entity_names]
+        size         = data.get("size",    "1024x1024")
+        quality      = data.get("quality", "low")
 
-        image_files = [BytesIO(base64.b64decode(e.b64_json)) for e in used_entities if e.b64_json]
-        text_prompts = []
-        for e in used_entities:
-            if not e.prompt:
-                continue
-            if e.b64_json:
-                text_prompts.append(f"{e.name}: add the following to the image – {e.prompt}")
-            else:
-                text_prompts.append(f"{e.name}: {e.prompt}")
+        image_b64 = _render_image(
+            prompt=prompt,
+            entity_names=entity_names,
+            entities=entities,
+            size=size,
+            quality=quality,
+        )
 
-        if text_prompts:
-            prompt += "\n\n" + "\n".join(text_prompts)
+        img_cfg = StoryImage(
+            index   = page_idx,
+            prompt  = prompt,
+            size    = size,
+            quality = quality,
+            b64_json= image_b64,
+        )
 
-        if image_files:
-            # Send as multipart/form-data
-            files = []
-            for i, f in enumerate(image_files):
-                files.append(("image[]", ("entity_image_%d.png" % i, f, "image/png")))
+        # make sure the list is long enough, then store
+        if len(story.images) <= page_idx:
+            story.images.extend([None] * (page_idx + 1 - len(story.images)))
+        story.images[page_idx] = img_cfg
+        return {}                           # no extras
 
-            data = {
-                "model": "gpt-image-1",
-                "prompt": prompt,
-                "quality": "low",
-                "size": "1024x1024"
-            }
+    elif action == "generate_image":        # generic, just hand back b64
+        prompt       = data["prompt"]
+        entity_names = data.get("entity_names", [])
+        size         = data.get("size",    "1024x1024")
+        quality      = data.get("quality", "low")
 
-            headers = {
-                "Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"
-            }
-
-            response = httpx.post(
-                "https://api.openai.com/v1/images/edits",
-                headers=headers,
-                data=data,
-                files=files,
-                timeout=60
-            )
-
-            if response.status_code != 200:
-                logger.error("Image generation failed: %s", response.text)
-                raise HTTPException(502, "Image generation failed: " + response.text)
-
-            image_b64 = response.json()["data"][0]["b64_json"]
-            return {"image_b64": image_b64}
-
-        elif text_prompts:
-            # No images, generate from text only
-            result = client.images.generate(
-                model="gpt-image-1",
-                prompt=prompt,
-                n=1,
-                size="1024x1024",
-                quality="low",
-            )
-            return {"image_b64": result.data[0].b64_json}
-
-        else:
-            raise HTTPException(400, "No valid image files or prompts provided for image generation.")
+        image_b64 = _render_image(
+            prompt=prompt,
+            entity_names=entity_names,
+            entities=entities,
+            size=size,
+            quality=quality,
+        )
+        return {"image_b64": image_b64}
     elif action == "edit_text":
         idx = data["page"]
         if not 0 <= idx < len(story.pages):
