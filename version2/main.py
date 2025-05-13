@@ -402,16 +402,24 @@ def _apply_action(
         page_idx      = data["page"]
         prompt        = data["prompt"]
         entity_names  = data.get("entity_names", [])
+        size    = data.get("size", "1024x1024"),
+        quality = data.get("quality", "low"),
 
-
+        image_b64 = _generate_image(
+                prompt=prompt,
+                entity_names=entity_names,
+                entities=entities,
+                size=size,
+                quality=quality
+            )
 
         # result is `image_b64` (string) after you’ve called the image API
         img_cfg = StoryImage(
             index   = page_idx,
             prompt  = prompt,
-            size    = data.get("size", "1024x1024"),
-            quality = data.get("quality", "low"),
-            b64_json= image_b64,
+            size    = size,
+            quality = quality,
+            image_b64 = image_b64,
         )
 
         # ensure we have a slot for this page

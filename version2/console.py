@@ -16,7 +16,8 @@ INDENT = "  "
 # Global state (like a frontend)
 story = {
     "prompt": "",
-    "pages": []
+    "pages": [],
+    "images": []
 }
 
 entities = []
@@ -34,6 +35,20 @@ def _format_table(headers, rows):
         return INDENT + " | ".join(str(c).ljust(w) for c, w in zip(row, widths))
     return "\n".join([fmt(headers), INDENT + "-+-".join("-"*w for w in widths)] + [fmt(r) for r in rows])
 
+# console.py – put this next to _pp_story / _pp_entities
+def _pp_page_images(imgs):
+    rows = [
+        [
+            img.get("index", "-"),
+            (img.get("prompt") or "")[:40],  # crop long prompts
+            img.get("size", ""),
+            img.get("quality", "")
+        ]
+        for img in imgs
+    ]
+    return _format_table(["Pg", "Prompt", "Size", "Quality"], rows)
+
+
 def _pp_story(s):
     out = [f"Prompt: {s.get('prompt', '')}", SUBDIV]
     for p in s.get("pages", []):
@@ -46,18 +61,30 @@ def _pp_entities(ents):
     return _format_table(["Name", "Img", "Prompt"], rows)
 
 def pretty(resp: Dict) -> str:
-    sections = [
-        f"{DIVIDER}\nMODE: {resp.get('mode')}\n{DIVIDER}\n"
-    ]
+    sections = [f"{DIVIDER}\nMODE: {resp.get('mode')}\n{DIVIDER}\n"]
+
+    # assistant free-text
     if (msg := resp.get("assistant_output")):
-        sections.append("Assistant:\n" + textwrap.indent(textwrap.fill(msg, 66), INDENT))
+        sections.append("Assistant:\n" +
+                        textwrap.indent(textwrap.fill(msg, 66), INDENT))
+
+    # story pages                                         ▼▼ NEW ▼▼
     if (s := resp.get("story")):
         sections.append("Story:\n" + _pp_story(s))
+        if s.get("images"):
+            sections.append("Page images:\n" + _pp_page_images(s["images"]))
+
+    # entities
     if (ents := resp.get("entities")):
         sections.append("Entities:\n" + _pp_entities(ents))
-    if (imgs := resp.get("image_urls")):
-        sections.append("Images:\n" + "\n".join(f"{INDENT}• {url}" for url in imgs))
+
+    # any loose images we just saved (see next step)
+    if (loose := resp.get("_loose_image_paths")):
+        sections.append("Generated image files:\n" +
+                        "\n".join(f"{INDENT}• {p}" for p in loose))
+
     return ("\n" + SUBDIV + "\n").join(sections)
+
 
 # ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -90,22 +117,27 @@ def send(msg: str) -> Dict:
     res.raise_for_status()
     data = res.json()
 
-    # update local state
-    story = data.get("story", story)
+    # ── update local state ───────────────────────────────
+    story    = data.get("story", story)
     entities = data.get("entities", entities)
-    history = data.get("history", history)
+    history  = data.get("history", history)
 
-    # save image if returned
-    image_b64 = data.get("image_b64")
-    if image_b64:
+    # ── capture any ad-hoc image ─────────────────────────
+    loose_paths = []
+    if (image_b64 := data.get("image_b64")):
         os.makedirs("out_images", exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        out_path = f"out_images/image_{timestamp}.png"
+        out_path  = f"out_images/image_{timestamp}.png"
         with open(out_path, "wb") as f:
             f.write(base64.b64decode(image_b64))
-        print(f"\n🖼️  Saved generated image to: {out_path}")
+        loose_paths.append(out_path)
+
+    # pass those filenames back to pretty()
+    if loose_paths:
+        data["_loose_image_paths"] = loose_paths
 
     return data
+
 
 
 if __name__ == "__main__":

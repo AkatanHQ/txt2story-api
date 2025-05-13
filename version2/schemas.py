@@ -30,7 +30,7 @@ class StoryImage(BaseModel):
     prompt: Optional[str] = None        # prompt actually used for this image
     size:   Optional[str] = None        # 512×512 … 1024×1792
     quality: Optional[str] = None       # low / medium / high
-    b64_json: Optional[str] = None      # base64 of the generated PNG
+    image_b64: Optional[str] = None      # base64 of the generated PNG
 
 
 class StoryEntity(BaseModel):
