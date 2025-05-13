@@ -157,6 +157,25 @@ def _find_entity(name: str, entities: List[StoryEntity]) -> Optional[StoryEntity
 # ░░ OpenAI chat orchestration ░░
 # ────────────────────────────
 
+# main.py – near _normalize_indexes() or anywhere you keep helpers
+def _summarise_images(images) -> str:
+    """Return a short bulleted list of the page images, omitting b64 data."""
+    if not images:
+        return "(none)"
+    lines = []
+    for img in images:
+        if img is None:           # hole in the list
+            continue
+        snippet = (img.prompt or "")[:60]            # first 60 chars
+        if len(snippet) < len(img.prompt or ""):
+            snippet += "…"
+        lines.append(
+            f"- page {img.index}: size={img.size or '?'} "
+            f"quality={img.quality or '?'} • prompt: {snippet}"
+        )
+    return "\n".join(lines)
+
+
 def _intent_agent(
     user_msg: str,
     story: Story,
@@ -167,6 +186,7 @@ def _intent_agent(
 
     history.append({"role": "user", "content": user_msg})
     history[:] = history[-MAX_HISTORY:]
+    images_summary = _summarise_images(story.images)
 
     SYSTEM_PROMPT = (
         "You are StoryGPT. Decide if the user is chatting or wants to use a tool.\n\n"
@@ -179,6 +199,8 @@ def _intent_agent(
         f"• Pages: {len(story.pages)}\n"
         f"• Entities ({len(entities)}): {', '.join(e.name for e in entities) or '–'}\n"
         f"• Prompt: {story.prompt[:120]}{'…' if len(story.prompt) > 120 else ''}\n\n"
+        f"• Images ({sum(1 for i in story.images if i)}):\n{images_summary}\n\n"
+
 
         "Available tools:\n"
         "• edit_story_prompt – replace the story synopsis\n"
@@ -195,7 +217,9 @@ def _intent_agent(
             " (pass an empty string for `prompt` to clear it)\n"
         "• delete_entity – remove an entity\n\n"
 
+        "• edit_image_prompt – Edit the image prompts.\n\n"
         "• generate_image – Generate an image with optional entity inputs as references.\n\n"
+        "• generate_image_for_index – Generate an image for a specific page index.\n\n"
 
         "- If no tools make sense, just respond conversationally — but steer the user toward story creation.\n"
         "- If it’s story-related and no tool fits exactly, use edit_story_prompt.\n"
@@ -397,7 +421,28 @@ def _apply_action(
         pages = _generate_story_pages(new_prompt, entities=entities)
         story.pages = [StoryText(index=i, text=p) for i, p in enumerate(pages)]
 
-    
+    elif action == "edit_image_prompt":
+        idx      = data["page"]
+        new_p    = data.get("prompt")
+        new_size = data.get("size")
+        new_q    = data.get("quality")
+
+        # ensure we have a slot for this page
+        if len(story.images) <= idx:
+            story.images.extend([None] * (idx + 1 - len(story.images)))
+
+        # if it was empty, create a blank image record first
+        if story.images[idx] is None:
+            story.images[idx] = StoryImage(index=idx)
+
+        img_cfg = story.images[idx]
+        if new_p is not None:
+            img_cfg.prompt = new_p
+        if new_size is not None:
+            img_cfg.size = new_size
+        if new_q is not None:
+            img_cfg.quality = new_q
+
     elif action == "generate_image_for_index":
         page_idx      = data["page"]
         prompt        = data["prompt"]

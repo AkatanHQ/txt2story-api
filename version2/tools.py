@@ -7,6 +7,26 @@ TOOLS: List[Dict] = [
     {
         "type": "function",
         "function": {
+            "name": "edit_image_prompt",     # ⇦ exactly matches the Mode you already defined
+            "description": (
+                "Update the stored prompt / metadata of an **existing** image for a page. "
+                "Does NOT call the image model – it only edits the fields we keep."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "page":    { "type": "integer", "description": "Page index of the image." },
+                    "prompt":  { "type": "string",  "description": "New prompt to store.",          "nullable": True },
+                    "size":    { "type": "string",  "description": "New size, e.g. 1024x1024.",     "nullable": True },
+                    "quality": { "type": "string",  "description": "low / medium / high.",          "nullable": True }
+                },
+                "required": ["page"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "generate_image_for_index",
             "description": "Generate an image for a given page index; store it on that page index.",
             "parameters": {
