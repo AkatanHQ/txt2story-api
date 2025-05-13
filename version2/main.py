@@ -217,9 +217,10 @@ def _intent_agent(
             " (pass an empty string for `prompt` to clear it)\n"
         "• delete_entity – remove an entity\n\n"
 
-        "• edit_image_prompt – Edit the image prompts.\n\n"
-        "• generate_image – Generate an image with optional entity inputs as references.\n\n"
-        "• generate_image_for_index – Generate an image for a specific page index.\n\n"
+        "• edit_image_prompt – Edit the stored *prompt / size / quality* metadata of an existing page image (does NOT regenerate the image).\n\n"
+        "- If the user asks to add or update image prompts, iterate over existing pages and call edit_image_prompt for each page index."
+        # "• generate_image – Generate an image with optional entity inputs as references.\n\n"
+        # "• generate_image_for_index – Generate an image for a specific page index.\n\n"
 
         "- If no tools make sense, just respond conversationally — but steer the user toward story creation.\n"
         "- If it’s story-related and no tool fits exactly, use edit_story_prompt.\n"
@@ -338,70 +339,24 @@ def _generate_image(
     else:
         raise HTTPException(400, "No valid image files or prompts provided for image generation.")
     
-def _render_image(
-    *,
-    prompt: str,
-    entity_names: List[str],
-    entities: List[StoryEntity],
-    size: str = "1024x1024",
-    quality: str = "low",
-) -> str:                     # returns image_b64
-    """
-    Build a prompt that stitches in any referenced entities, perform the
-    OpenAI image (edit or generate) call, and return the resulting base-64
-    PNG.  This is used by both `generate_image_for_index` and `generate_image`.
-    """
-    used_ents   = [e for e in entities if e.name in entity_names]
-
-    image_files = [
-        BytesIO(base64.b64decode(e.b64_json))
-        for e in used_ents if e.b64_json
-    ]
-
-    # add entity-level instructions onto the prompt
-    extra_lines = []
-    for e in used_ents:
-        if not e.prompt:
-            continue
-        if e.b64_json:
-            extra_lines.append(f"{e.name}: add the following to the image – {e.prompt}")
-        else:
-            extra_lines.append(f"{e.name}: {e.prompt}")
-    if extra_lines:
-        prompt = f"{prompt}\n\n" + "\n".join(extra_lines)
-
-    # ——— call OpenAI ———
-    if image_files:                                   # image *edit*
-        files   = [("image[]", (f"ent_{i}.png", f, "image/png"))
-                   for i, f in enumerate(image_files)]
-        payload = {
-            "model":   "gpt-image-1",
-            "prompt":  prompt,
-            "quality": quality,
-            "size":    size,
-        }
-        headers = {"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"}
-        r = httpx.post(
-            "https://api.openai.com/v1/images/edits",
-            headers=headers,
-            data=payload,
-            files=files,
-            timeout=60
-        )
-        if r.status_code != 200:
-            logger.error("Image generation failed: %s", r.text)
-            raise HTTPException(502, "Image generation failed: " + r.text)
-        return r.json()["data"][0]["b64_json"]
-
-    else:                                             # pure text *generate*
-        result = client.images.generate(
-            model="gpt-image-1",
-            prompt=prompt,
-            n=1,
-            size=size,
-            quality=quality,
-        )
-        return result.data[0].b64_json
+def _generate_image_prompts(pages: List[str], entities=None) -> List[str]:
+    ent_desc = "\n".join(f"- {e.name}: {e.prompt or 'image only'}"
+                         for e in (entities or [])) or "(none)"
+    sys = (
+        "You are a children-book art director. "
+        "For each passage you receive, answer with ONE vivid DALL·E prompt. "
+        "Return a JSON array, same length, no markdown."
+        "\n\nReusable entities:\n" + ent_desc
+    )
+    joined = "\n".join(f"{i+1}. {p}" for i, p in enumerate(pages))
+    raw = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "system", "content": sys},
+                  {"role": "user",   "content": joined}],
+        temperature=0.8,
+        max_tokens=400,
+    ).choices[0].message.content.strip()
+    return _parse_json_or_lines(raw)        # still the tolerant splitter
 
 
 def _apply_action(
@@ -421,27 +376,34 @@ def _apply_action(
         pages = _generate_story_pages(new_prompt, entities=entities)
         story.pages = [StoryText(index=i, text=p) for i, p in enumerate(pages)]
 
+    # 2️⃣  inside _apply_action → edit_story_prompt branch
     elif action == "edit_image_prompt":
-        idx      = data["page"]
-        new_p    = data.get("prompt")
-        new_size = data.get("size")
-        new_q    = data.get("quality")
+        # The only job here is to update the stored metadata of ONE page-image.
+        # Absolutely no story text or page list should change.
 
-        # ensure we have a slot for this page
+        idx      = data["page"]          # zero-based page index
+        new_p    = data.get("prompt")    # may be None
+        new_size = data.get("size")      # may be None
+        new_q    = data.get("quality")   # may be None
+
+        # Ensure the images list is long enough to hold this page slot
         if len(story.images) <= idx:
             story.images.extend([None] * (idx + 1 - len(story.images)))
 
-        # if it was empty, create a blank image record first
+        # If the slot is empty, create a minimal StoryImage shell first
         if story.images[idx] is None:
             story.images[idx] = StoryImage(index=idx)
 
         img_cfg = story.images[idx]
+
+        # Apply only the fields the user provided
         if new_p is not None:
             img_cfg.prompt = new_p
         if new_size is not None:
             img_cfg.size = new_size
         if new_q is not None:
             img_cfg.quality = new_q
+
 
     elif action == "generate_image_for_index":
         page_idx      = data["page"]

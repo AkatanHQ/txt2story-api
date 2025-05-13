@@ -24,46 +24,45 @@ TOOLS: List[Dict] = [
             }
         }
     },
-    {
-        "type": "function",
-        "function": {
-            "name": "generate_image_for_index",
-            "description": "Generate an image for a given page index; store it on that page index.",
-            "parameters": {
-            "type": "object",
-            "properties": {
-                "index":  { "type": "integer", "description": "Page index the image is for." },
-                "prompt": { "type": "string", "description": "Prompt for GPT-image-1." },
-                "entity_names": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Names of entities to reference."
-                    }
-            },
-            "required": ["page", "prompt"]
-            }
-        }
-    },
-
-    {
-        "type": "function",
-            "function": {
-            "name": "generate_image",
-            "description": "Generate an image using the GPT-image model with optional entity inputs as references. If an entity has no image, its prompt is used.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "prompt": {"type": "string", "description": "Prompt for the image."},
-                    "entity_names": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Names of entities to include in the image generation."
-                    }
-                },
-                "required": ["prompt"]
-            }
-        }
-    },
+    # {
+    #     "type": "function",
+    #     "function": {
+    #         "name": "generate_image_for_index",
+    #         "description": "Generate an image for a given page index; store it on that page index.",
+    #         "parameters": {
+    #         "type": "object",
+    #         "properties": {
+    #             "page":  { "type": "integer", "description": "Page index the image is for." },
+    #             "prompt": { "type": "string", "description": "Prompt for GPT-image-1." },
+    #             "entity_names": {
+    #                 "type": "array",
+    #                 "items": { "type": "string" },
+    #                 "description": "Names of entities to reference."
+    #                 }
+    #         },
+    #         "required": ["page", "prompt"]
+    #         }
+    #     }
+    # },
+    # {
+    #     "type": "function",
+    #         "function": {
+    #         "name": "generate_image",
+    #         "description": "Generate an image using the GPT-image model with optional entity inputs as references. If an entity has no image, its prompt is used.",
+    #         "parameters": {
+    #             "type": "object",
+    #             "properties": {
+    #                 "prompt": {"type": "string", "description": "Prompt for the image."},
+    #                 "entity_names": {
+    #                     "type": "array",
+    #                     "items": {"type": "string"},
+    #                     "description": "Names of entities to include in the image generation."
+    #                 }
+    #             },
+    #             "required": ["prompt"]
+    #         }
+    #     }
+    # },
     {
         "type": "function",
         "function": {
