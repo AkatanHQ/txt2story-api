@@ -16,9 +16,9 @@ TOOLS: List[Dict] = [
                 "type": "object",
                 "properties": {
                     "page":    { "type": "integer", "description": "Page index of the image." },
-                    "prompt":  { "type": "string",  "description": "New prompt to store.",          "nullable": True },
-                    "size":    { "type": "string",  "description": "New size, e.g. 1024x1024.",     "nullable": True },
-                    "quality": { "type": "string",  "description": "low / medium / high.",          "nullable": True }
+                    "prompt":  { "type": "string",  "description": "New prompt to store."},
+                    "size":    { "type": "string",  "description": "New size, e.g. 1024x1024."},
+                    "quality": { "type": "string",  "description": "low / medium / high."}
                 },
                 "required": ["page"]
             }
