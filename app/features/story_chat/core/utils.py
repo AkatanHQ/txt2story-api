@@ -3,7 +3,7 @@ import json
 import logging
 import re
 from typing import Dict, List, Optional, Tuple
-from schemas import (
+from .schemas import (
     Story,
     StoryText,
     StoryEntity,

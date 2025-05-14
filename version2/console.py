@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Dict, List
 import requests
 
-API_URL = "http://localhost:8000/chat"
+API_URL = "http://localhost:4001/chat"
 
 DIVIDER = "=" * 70
 SUBDIV = "-" * 70

@@ -1,5 +1,5 @@
 from app.features.story_chat.core.utils import (_parse_json_or_lines, _clean_json_fence, _normalize_indexes, _find_entity, _summarise_images)
-from schemas import (
+from .schemas import (
     Story,
     StoryText,
     StoryEntity,
