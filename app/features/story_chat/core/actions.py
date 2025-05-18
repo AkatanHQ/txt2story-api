@@ -230,9 +230,12 @@ def _apply_action(
         
     elif action == "edit_text":
         idx = data["page"]
-        if not 0 <= idx < len(story.pages):
+        if not 0 <= idx <= len(story.pages):
+            logger.warning("Page index %d out of bounds for edit_text. Page count: %d", idx, len(story.pages))
             raise HTTPException(400, "Page index out of range.")
+        logger.info("✏️ Editing text on page %d", idx)
         story.pages[idx].text = data["new_text"]
+
 
     elif action == "edit_all":
         new_texts = data["new_texts"]

@@ -152,8 +152,8 @@ if __name__ == "__main__":
     print("📚 StoryGPT (stateful CLI)")
     print("Type messages to continue the story, 'exit' to quit.")
     print("Special command: add_entity_with_image <name> <image_path> <prompt>\n")
-    manually_add_entity("John", "out_images/Man1.webp", "a young man with brown hair")
-    manually_add_entity("Dog", "out_images/dog2.webp", "dog has a hat on")
+    # manually_add_entity("John", "out_images/Man1.webp", "a young man with brown hair")
+    # manually_add_entity("Dog", "out_images/dog2.webp", "dog has a hat on")
 
     while True:
         try:

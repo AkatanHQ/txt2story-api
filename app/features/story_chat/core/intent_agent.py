@@ -5,12 +5,7 @@ from typing import Dict, List, Optional, Tuple
 
 from .schemas import (
     Story,
-    StoryText,
     StoryEntity,
-    ChatRequest,
-    ChatResponse,
-    Mode,
-    StoryImage,
 )
 from .tools import TOOLS
 
@@ -34,6 +29,8 @@ def _intent_agent(
         "You are StoryGPT. Decide if the user is chatting or wants to use a tool.\n\n"
         "If tool use is needed, respond ONLY with the appropriate function call(s).\n\n"
         "If you intend to use tools, DO NOT reply in natural language. ONLY return tool_calls using the OpenAI tools format."
+        "If a question is asked, eg. 'What would you improve in the story?' Then respond in natural language."
+        "If no tools make sense, just respond conversationally — but steer the user toward story creation."
         "You are allowed to return **multiple tool calls in a single response**.\n\n"
         "If you don't know what to do, reply in natural language."
         "Always consider history as well, but focus on the most recent questions."
@@ -49,7 +46,7 @@ def _intent_agent(
         f"• Images Prompts({sum(1 for i in story.images if i)}):\n{images_summary}\n\n"
 
         "Available tools:\n"
-        "• edit_story_prompt – replace the story synopsis\n"
+        "• edit_story_prompt – replace the story synopsis.\n"
 
         "• edit_text – replace one page\n"
         "• edit_all – replace all pages\n"

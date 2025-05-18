@@ -15,6 +15,7 @@ async def handle_chat(req: ChatRequest) -> ChatResponse:
     entities: List[StoryEntity] = list(req.entities or [])
     history: List[dict] = list(req.history or [])
 
+    print(story)
     try:
         tool_calls, assistant_output = _intent_agent(
             req.user_input, story, entities, history
@@ -35,6 +36,7 @@ async def handle_chat(req: ChatRequest) -> ChatResponse:
     else:
         executed_modes.append(Mode.CONTINUE_CHAT)
 
+    print("Returning response with mode:", executed_modes)
     return ChatResponse(
         modes=executed_modes,
         assistant_output=assistant_output,
