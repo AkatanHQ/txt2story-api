@@ -9,6 +9,8 @@ class Mode(str, Enum):
     CONTINUE_CHAT = "continue_chat"
 
     EDIT_STORY_PROMPT = "edit_story_prompt"
+    NO_TOOL                = "no_tool"
+    EDIT_STORY_SETTINGS    = "edit_story_settings" 
 
     EDIT_TEXT = "edit_text"
     EDIT_ALL = "edit_all"
@@ -27,6 +29,10 @@ class Mode(str, Enum):
     UPDATE_ENTITY = "update_entity"
     DELETE_ENTITY = "delete_entity"
 
+class StorySettings(BaseModel):
+    """Optional high-level configuration for the whole story."""
+    tone:  Optional[str] = None   # e.g. "silly", "spooky"
+    pages: Optional[int] = None   # target number of pages
 
 class StoryImage(BaseModel):
     index: int
@@ -51,7 +57,7 @@ class Story(BaseModel):
     prompt: str = Field(default="")
     pages: List[StoryText] = Field(default_factory=list)
     images: List[StoryImage] = Field(default_factory=list)
-
+    settings: Optional[StorySettings] = None
 
 class ChatRequest(BaseModel):
     """Frontend payload.
@@ -73,4 +79,5 @@ class ChatResponse(BaseModel):
     entities: Optional[List[StoryEntity]] = None
     image_b64: Optional[str] = None
     history: Optional[List[dict]] = None
+    settings: Optional[StorySettings] = None
 

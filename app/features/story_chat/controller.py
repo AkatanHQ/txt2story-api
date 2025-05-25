@@ -17,9 +17,7 @@ async def handle_chat(req: ChatRequest) -> ChatResponse:
 
     print(story)
     try:
-        tool_calls, assistant_output = _intent_agent(
-            req.user_input, story, entities, history
-        )
+        tool_calls, assistant_output = _intent_agent( req.user_input, story, entities, history )
     except OpenAIError as e:
         logger.error("OpenAI call failed: %s", str(e))
         raise HTTPException(502, f"OpenAI error: {str(e)}")
@@ -43,5 +41,6 @@ async def handle_chat(req: ChatRequest) -> ChatResponse:
         story=story,
         entities=entities,
         history=history,
-        image_b64=extras.get("image_b64")
+        image_b64=extras.get("image_b64"),
+        settings        = story.settings,
     )

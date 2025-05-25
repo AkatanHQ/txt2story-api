@@ -157,6 +157,16 @@ def _apply_action(
         pages = _generate_story_pages(new_prompt, entities=entities)
         story.pages = [StoryText(index=i, text=p) for i, p in enumerate(pages)]
 
+    elif action == "edit_story_settings":
+        if story.settings is None:
+            story.settings = StorySettings()
+        if "tone"  in data: story.settings.tone  = data["tone"]
+        if "pages" in data: story.settings.pages = data["pages"]
+
+    elif action == "no_tool":
+        # deliberate no-op
+        pass
+
     elif action == "edit_image_prompt":
         # The only job here is to update the stored metadata of ONE page-image.
         # Absolutely no story text or page list should change.
