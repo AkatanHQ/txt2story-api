@@ -169,7 +169,7 @@ def _apply_tool(
     if tool == "edit_story_prompt":
         new_prompt = data["new_prompt"]
         story.prompt = new_prompt
-        pages = _generate_story_pages(new_prompt, entities=entities)
+        pages = _generate_story_pages(story, entities=entities)
         story.pages = [StoryText(index=i, text=p) for i, p in enumerate(pages)]
 
     elif tool == "edit_target_page_count":

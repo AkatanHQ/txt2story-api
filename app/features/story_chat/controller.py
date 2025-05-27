@@ -7,7 +7,7 @@ from typing import List
 from .core.schemas import ChatRequest, ChatResponse, Story, StoryEntity, Mode
 from .core.tool_agent import _tool_agent
 from .core.actions import _apply_tool
-from .config import logger
+from .config import logger, MAX_HISTORY
 from .core.reply_agent  import reply_agent
 from app.features.story_chat.core.utils import ( history_for_api )
 
@@ -15,17 +15,24 @@ async def handle_chat(req: ChatRequest) -> ChatResponse:
     story: Story = req.story or Story(prompt="")
     entities: List[StoryEntity] = list(req.entities or [])
     history_with_tools: List[dict] = list(req.history or [])
-
+    user_msg = req.user_input
+    print("received input: ", user_msg)
+    print("story", story)
     history = history_for_api(history_with_tools)
 
+    # ── 1. Add the latest user turn ───────────────────────────────────────
+    history.append({"role": "user", "content": user_msg})
+    print("history 2", history)
+
     try:
-        tool_calls = _tool_agent(req.user_input, story, entities, history)
+        tool_calls = _tool_agent(story, entities, history)
     except OpenAIError as e:
         logger.error("OpenAI call failed: %s", str(e))
         raise HTTPException(502, f"OpenAI error: {str(e)}")
 
     executed_tools: List[Mode] = []
     extras = {}
+    print("history 3", history)
 
     for tool, args in tool_calls:          # tool_calls is never empty now
         logger.info(">> Executing tool: %s %s", tool, args)

@@ -36,7 +36,6 @@ from .utils import logger
 # ---------------------------------------------------------------------------
 
 def _tool_agent(
-    user_msg: str,
     story: Story,
     entities: List[StoryEntity],
     history: List[dict],
@@ -52,11 +51,6 @@ def _tool_agent(
     are silently filtered out via :pyfunc:`history_for_api` so that the
     API never sees unsupported roles.
     """
-
-    # ── 1. Add the latest user turn ───────────────────────────────────────
-    history.append({"role": "user", "content": user_msg})
-    history[:] = history[-MAX_HISTORY:]
-
     # ── 2. Build the system prompt with live story context ───────────────
     images_summary = _summarise_images(story.images)
 
@@ -132,15 +126,12 @@ def _tool_agent(
                 tool_calls.append((call.function.name, args))
                 called_tool_names.append(call.function.name)
 
-            # Mark the assistant turn for readability (optional)
-            history.append({"role": "assistant", "content": ""})
         else:
             tool_calls = [("no_tool", {})]
             called_tool_names.append("no_tool")
-            history.append({"role": "assistant", "content": ""})
 
         # Persist the tool log (one message per assistant turn)
-        history.append({"role": "tool", "content": json.dumps(called_tool_names)})
+        # history.append({"role": "tool", "content": json.dumps(called_tool_names)})
 
         return tool_calls
 
