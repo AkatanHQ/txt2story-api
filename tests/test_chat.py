@@ -61,7 +61,7 @@ def print_assistant(resp: Dict[str, Any]) -> None:
 
     if RICH_AVAILABLE:
         body = assistant_output if footer == "" else assistant_output + "\n\n" + footer
-        rprint(Panel(body, title="[bold magenta]Assistant", style="magenta"))
+        rprint(Panel(body, title="[bold yellow]Assistant", style="yellow"))
     else:
         print("-" * 60)
         print("Assistant:", textwrap.fill(assistant_output, width=80))
@@ -160,7 +160,7 @@ def main() -> None:
 
             # ---------- History ----------
             if history:
-                table = Table(title="History", title_style="bold yellow")
+                table = Table(title="History", title_style="bold white")
                 table.add_column("Role", style="white")
                 table.add_column("Content", style="white")
                 for entry in history:

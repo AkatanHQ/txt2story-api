@@ -49,7 +49,7 @@ TOOLS: List[Dict] = [
     {
         "type": "function",
         "function": {
-            "name": "edit_image_prompt",     # ⇦ exactly matches the Mode you already defined
+            "name": "edit_image_prompt",
             "description": (
                 "Update the stored prompt / metadata of an **existing** image for a page. "
                 "Does NOT call the image model – it only edits the fields we keep."
