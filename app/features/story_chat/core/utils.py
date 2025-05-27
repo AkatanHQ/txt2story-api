@@ -13,6 +13,28 @@ from .schemas import (
     StoryImage,
 )
 
+# ---------------------------------------------------------------------------
+# Helper utilities
+# ---------------------------------------------------------------------------
+
+def _strip_for_api(msg: Dict[str, str]) -> Dict[str, str]:
+    """Return a copy of *msg* that contains only keys accepted by the
+    OpenAI Chat API (currently: `role` and `content`)."""
+
+    return {k: v for k, v in msg.items() if k in ("role", "content")}
+
+
+def history_for_api(raw_history: List[dict]) -> List[dict]:
+    """Produce a *clean* history list suitable for the ChatCompletion call.
+
+    * Drops any message whose `role` is "tool" (these are our internal
+      audit entries).
+    * Strips everything except `role` and `content` from the remaining
+      messages so that the payload conforms to the API schema.
+    """
+
+    return [_strip_for_api(m) for m in raw_history if m.get("role") != "tool"]
+
 
 logger = logging.getLogger("storygpt")
 

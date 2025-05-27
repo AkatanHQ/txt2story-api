@@ -6,8 +6,6 @@ from enum import Enum
 # ░░ Data models ░░
 # ────────────────────────────
 class Mode(str, Enum):
-    CONTINUE_CHAT = "continue_chat"
-
     EDIT_TARGET_PAGE_COUNT = "edit_target_page_count"
     EDIT_STORY_TONE       = "edit_story_tone"
     

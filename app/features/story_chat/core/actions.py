@@ -17,12 +17,25 @@ from io import BytesIO
 from fastapi import FastAPI, HTTPException
 
 
-def _generate_story_pages(prompt: str, entities: Optional[List[StoryEntity]] = None) -> List[str]:
+def _generate_story_pages(story, entities: Optional[List[StoryEntity]] = None) -> List[str]:
     """Call OpenAI to expand the prompt into *n* 1‑2 sentence pages."""
-
+    prompt = story.prompt
+    
     ent_desc = "\n".join(
         f"- {e.name}: {e.prompt or 'image only'}" for e in (entities or [])
     ) or "(none)"
+
+    desired_pages = (
+        story.settings.target_page_count
+        if story.settings and story.settings.target_page_count
+        else 5
+    )
+
+    tone_instruction = (
+        f"Write the story in a **{story.settings.tone}** tone.\n\n"
+        if story.settings and story.settings.tone
+        else ""
+    )
 
     logger.info("Generating pages for prompt with %d entit(y|ies)", len(entities or []))
 
@@ -34,9 +47,10 @@ def _generate_story_pages(prompt: str, entities: Optional[List[StoryEntity]] = N
 
             "Your task is to continue the story by generating a JSON array of short story segments (1–2 sentences each). These will become the pages of a picture book."
 
-            "📌 Unless the user explicitly specifies otherwise, generate exactly **5** story pages.\n\n"
+             f"📌 Unless the user explicitly specifies otherwise, generate exactly **{desired_pages}** story pages.\n\n"
 
             "\n\nEach item in the array should:\n"
+            f"- Tone: {tone_instruction}"
             "- Flow naturally from the previous segments.\n"
             "- Be plain English narrative (not dialogue-only, not poetry).\n"
             "- Be simple enough for children to understand.\n"
@@ -141,8 +155,8 @@ def _generate_image(
         raise HTTPException(400, "No valid image files or prompts provided for image generation.")
 
 
-def _apply_action(
-    action: str,
+def _apply_tool(
+    tool: str,
     data: dict,
     story: Story,
     entities: List[StoryEntity],
@@ -152,27 +166,27 @@ def _apply_action(
     extras: Dict = {}
 
     # Page / story tools
-    if action == "edit_story_prompt":
+    if tool == "edit_story_prompt":
         new_prompt = data["new_prompt"]
         story.prompt = new_prompt
         pages = _generate_story_pages(new_prompt, entities=entities)
         story.pages = [StoryText(index=i, text=p) for i, p in enumerate(pages)]
 
-    elif action == "edit_target_page_count":
+    elif tool == "edit_target_page_count":
         if story.settings is None:
             story.settings = StorySettings()
         story.settings.target_page_count = data["target_page_count"]
 
-    elif action == "edit_story_tone":
+    elif tool == "edit_story_tone":
         if story.settings is None:
             story.settings = StorySettings()
         story.settings.tone = data["tone"]
 
-    elif action == "no_tool":
+    elif tool == "no_tool":
         # deliberate no-op
         pass
 
-    elif action == "edit_image_prompt":
+    elif tool == "edit_image_prompt":
         # The only job here is to update the stored metadata of ONE page-image.
         # Absolutely no story text or page list should change.
 
@@ -200,7 +214,7 @@ def _apply_action(
             img_cfg.quality = new_q
 
 
-    elif action == "generate_image_for_index":
+    elif tool == "generate_image_for_index":
         page_idx      = data["page"]
         prompt        = data["prompt"]
         entity_names  = data.get("entity_names", [])
@@ -232,7 +246,7 @@ def _apply_action(
         # nothing for extras now
         return {}
 
-    elif action == "generate_image":
+    elif tool == "generate_image":
         prompt = data["prompt"]
         entity_names = data.get("entity_names", [])
 
@@ -243,7 +257,7 @@ def _apply_action(
             )
         return {"image_b64": image_b64}
         
-    elif action == "edit_text":
+    elif tool == "edit_text":
         idx = data["page"]
         if not 0 <= idx <= len(story.pages):
             logger.warning("Page index %d out of bounds for edit_text. Page count: %d", idx, len(story.pages))
@@ -252,12 +266,12 @@ def _apply_action(
         story.pages[idx].text = data["new_text"]
 
 
-    elif action == "edit_all":
+    elif tool == "edit_all":
         new_texts = data["new_texts"]
         story.pages = [StoryText(index=i, text=t) for i, t in enumerate(new_texts)]
         _normalize_indexes(story)
 
-    elif action == "insert_page":
+    elif tool == "insert_page":
         idx = data["index"]
         text = data["text"]
         if not 0 <= idx <= len(story.pages):
@@ -265,14 +279,14 @@ def _apply_action(
         story.pages.insert(idx, StoryText(index=idx, text=text))
         _normalize_indexes(story)
 
-    elif action == "delete_page":
+    elif tool == "delete_page":
         idx = data["index"]
         if not 0 <= idx < len(story.pages):
             raise HTTPException(400, "Delete index out of range.")
         story.pages.pop(idx)
         _normalize_indexes(story)
 
-    elif action == "move_page":
+    elif tool == "move_page":
         frm, to = data["from_index"], data["to_index"]
         if not (0 <= frm < len(story.pages)) or not (0 <= to < len(story.pages)):
             raise HTTPException(400, "Move indexes out of range.")
@@ -281,15 +295,15 @@ def _apply_action(
         _normalize_indexes(story)
 
     # Entity tools
-    elif action == "add_entity":
+    elif tool == "add_entity":
         name = data["name"]
         if _find_entity(name, entities):
             # Silently turn it into an update instead of bombing out
-            action = "update_entity"
+            tool = "update_entity"
             data = {"name": name, **data}
         entities.append(StoryEntity(**data))
 
-    elif action == "update_entity":
+    elif tool == "update_entity":
         ent = _find_entity(data["name"], entities)
         if ent is None:
             raise HTTPException(404, "Entity not found.")
@@ -302,13 +316,14 @@ def _apply_action(
         if "prompt" in data:
             ent.prompt = data["prompt"]
 
-    elif action == "delete_entity":
+    elif tool == "delete_entity":
         ent = _find_entity(data["name"], entities)
         if ent is None:
             raise HTTPException(404, "Entity not found.")
         entities.remove(ent)
 
     else:
-        raise HTTPException(400, f"Unknown action {action}")
+        # TODO: Respond with no tool
+        raise HTTPException(400, f"Unknown tool {tool}")
 
     return extras
