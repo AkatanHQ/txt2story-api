@@ -34,6 +34,8 @@ async def handle_chat(req: ChatRequest) -> ChatResponse:
     extras = {}
     print("history 3", history)
 
+    story_before = Story(**story.model_dump())
+
     for tool, args in tool_calls:          # tool_calls is never empty now
         logger.info(">> Executing tool: %s %s", tool, args)
         action_result = _apply_tool(tool, args, story, entities)
@@ -43,7 +45,8 @@ async def handle_chat(req: ChatRequest) -> ChatResponse:
     # ───────────────────────────────────────────
     # 2️⃣  HUMAN-LANGUAGE ANSWER
     # ───────────────────────────────────────────
-    assistant_output = reply_agent(req.user_input, story, entities, history, tool_calls)
+    assistant_output = reply_agent(req.user_input, story_before, story, entities, history, tool_calls)
+
     history.append({"role": "assistant", "content": assistant_output})
 
     print("Returning response with mode:", executed_tools)
