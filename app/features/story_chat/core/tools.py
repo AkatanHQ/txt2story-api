@@ -4,6 +4,14 @@ from typing import Dict, List, Optional, Tuple
 # ░░ OpenAI tool definitions ░░
 # ────────────────────────────
 TOOLS: List[Dict] = [
+        {
+        "type": "function",
+        "function": {
+            "name": "no_tool",
+            "description": "Indicate that no state-changing tool action is required for this turn.",
+            "parameters": { "type": "object", "properties": {}, "required": [] }
+        }
+    },
     {  # ─── Story Settings ────────────────────────────────────────────
       "type": "function",
       "function": {
@@ -41,14 +49,6 @@ TOOLS: List[Dict] = [
     {
         "type": "function",
         "function": {
-            "name": "no_tool",
-            "description": "Indicate that no state-changing tool action is required for this turn.",
-            "parameters": { "type": "object", "properties": {}, "required": [] }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
             "name": "edit_image_prompt",
             "description": (
                 "Update the stored prompt / metadata of an **existing** image for a page. "
@@ -57,12 +57,12 @@ TOOLS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "page":    { "type": "integer", "description": "Page index of the image." },
+                    "index":    { "type": "integer", "description": "Page index of the image." },
                     "prompt":  { "type": "string",  "description": "New prompt to store."},
                     "size":    { "type": "string",  "description": "New size, e.g. 1024x1024."},
                     "quality": { "type": "string",  "description": "low / medium / high."}
                 },
-                "required": ["page"]
+                "required": ["index"]
             }
         }
     },
@@ -74,7 +74,7 @@ TOOLS: List[Dict] = [
             "parameters": {
             "type": "object",
             "properties": {
-                "page":  { "type": "integer", "description": "Page index the image is for." },
+                "index":  { "type": "integer", "description": "Page index the image is for." },
                 "prompt": { "type": "string", "description": "Prompt for GPT-image-1." },
                 "entity_names": {
                     "type": "array",
@@ -82,7 +82,7 @@ TOOLS: List[Dict] = [
                     "description": "Names of entities to reference."
                     }
             },
-            "required": ["page", "prompt"]
+            "required": ["index", "prompt"]
             }
         }
     },
@@ -90,7 +90,7 @@ TOOLS: List[Dict] = [
         "type": "function",
             "function": {
             "name": "generate_image",
-            "description": "Generate an image using the GPT-image model with optional entity inputs as references. If an entity has no image, its prompt is used.",
+            "description": "Generate an image using the GPT-image model with optional entity inputs as references. If an entity has no image, its prompt is used. It's for when no index is specified.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -113,10 +113,10 @@ TOOLS: List[Dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "page": {"type": "integer", "description": "Zero-based page index."},
+                    "index": {"type": "integer", "description": "Zero-based page index."},
                     "new_text": {"type": "string", "description": "Replacement text."},
                 },
-                "required": ["page", "new_text"],
+                "required": ["index", "new_text"],
             },
         },
     },

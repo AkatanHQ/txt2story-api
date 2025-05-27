@@ -17,70 +17,6 @@ from io import BytesIO
 from fastapi import FastAPI, HTTPException
 
 
-def _generate_story_pages(story, entities: Optional[List[StoryEntity]] = None) -> List[str]:
-    """Call OpenAI to expand the prompt into *n* 1‑2 sentence pages."""
-    prompt = story.prompt
-    
-    ent_desc = "\n".join(
-        f"- {e.name}: {e.prompt or 'image only'}" for e in (entities or [])
-    ) or "(none)"
-
-    desired_pages = (
-        story.settings.target_page_count
-        if story.settings and story.settings.target_page_count
-        else 5
-    )
-
-    tone_instruction = (
-        f"Write the story in a **{story.settings.tone}** tone.\n\n"
-        if story.settings and story.settings.tone
-        else ""
-    )
-
-    logger.info("Generating pages for prompt with %d entit(y|ies)", len(entities or []))
-
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "You are a creative and concise children's story writer. You will receive a short story prompt and a list of reusable story entities (characters or important elements)."
-
-            "Your task is to continue the story by generating a JSON array of short story segments (1–2 sentences each). These will become the pages of a picture book."
-
-             f"📌 Unless the user explicitly specifies otherwise, generate exactly **{desired_pages}** story pages.\n\n"
-
-            "\n\nEach item in the array should:\n"
-            f"- Tone: {tone_instruction}"
-            "- Flow naturally from the previous segments.\n"
-            "- Be plain English narrative (not dialogue-only, not poetry).\n"
-            "- Be simple enough for children to understand.\n"
-            "- Use the listed entities where relevant, integrating them naturally.\n"
-
-            "\n\nImportant formatting rules:\n"
-            "- Return ONLY a valid **JSON array** of strings. Example:\n"
-            "  [\"John picked up a stick.\", \"The dog wagged its tail excitedly.\"]\n"
-            "- **Do NOT** include any labels like 'Page 1:', 'Page 2:', etc.\n"
-            "- **Do NOT** use markdown, quotes, bullets, or code blocks.\n"
-            "- **Do NOT** wrap the array in triple backticks or fences.\n"
-            "- **Each array element must be plain story text only.**\n"
-
-            "\nReusable entities you may use in the story:\n"
-            f"{ent_desc or '(none)'}"
-
-            ),
-        },
-        {"role": "user", "content": prompt},
-    ]
-
-    resp = client.chat.completions.create(
-        model="gpt-4o",
-        messages=messages,
-        max_tokens=400,
-        temperature=0.7,
-    )
-    raw = resp.choices[0].message.content.strip()
-    return _parse_json_or_lines(raw)
-
 # ────────────────────────────
 # ░░ Apply actions ░░
 # ────────────────────────────
@@ -169,8 +105,6 @@ def _apply_tool(
     if tool == "edit_story_prompt":
         new_prompt = data["new_prompt"]
         story.prompt = new_prompt
-        pages = _generate_story_pages(story, entities=entities)
-        story.pages = [StoryText(index=i, text=p) for i, p in enumerate(pages)]
 
     elif tool == "edit_target_page_count":
         if story.settings is None:
@@ -190,7 +124,7 @@ def _apply_tool(
         # The only job here is to update the stored metadata of ONE page-image.
         # Absolutely no story text or page list should change.
 
-        idx      = data["page"]          # zero-based page index
+        idx      = data["index"]          # zero-based page index
         new_p    = data.get("prompt")    # may be None
         new_size = data.get("size")      # may be None
         new_q    = data.get("quality")   # may be None
@@ -213,58 +147,13 @@ def _apply_tool(
         if new_q is not None:
             img_cfg.quality = new_q
 
-
-    elif tool == "generate_image_for_index":
-        page_idx      = data["page"]
-        prompt        = data["prompt"]
-        entity_names  = data.get("entity_names", [])
-        size    = data.get("size", "1024x1024")
-        quality = data.get("quality", "low")
-
-        image_b64 = _generate_image(
-                prompt=prompt,
-                entity_names=entity_names,
-                entities=entities,
-                size=size,
-                quality=quality
-            )
-
-        # result is `image_b64` (string) after you’ve called the image API
-        img_cfg = StoryImage(
-            index   = page_idx,
-            prompt  = prompt,
-            size    = size,
-            quality = quality,
-            image_b64 = image_b64,
-        )
-
-        # ensure we have a slot for this page
-        if len(story.images) <= page_idx:
-            story.images.extend([None] * (page_idx + 1 - len(story.images)))
-        story.images[page_idx] = img_cfg
-
-        # nothing for extras now
-        return {}
-
-    elif tool == "generate_image":
-        prompt = data["prompt"]
-        entity_names = data.get("entity_names", [])
-
-        image_b64 = _generate_image(
-                prompt=prompt,
-                entity_names=entity_names,
-                entities=entities,
-            )
-        return {"image_b64": image_b64}
-        
     elif tool == "edit_text":
-        idx = data["page"]
+        idx = data["index"]
         if not 0 <= idx <= len(story.pages):
             logger.warning("Page index %d out of bounds for edit_text. Page count: %d", idx, len(story.pages))
             raise HTTPException(400, "Page index out of range.")
         logger.info("✏️ Editing text on page %d", idx)
         story.pages[idx].text = data["new_text"]
-
 
     elif tool == "edit_all":
         new_texts = data["new_texts"]
@@ -321,6 +210,49 @@ def _apply_tool(
         if ent is None:
             raise HTTPException(404, "Entity not found.")
         entities.remove(ent)
+
+    elif tool == "generate_image_for_index":
+        page_idx      = data["index"]
+        prompt        = data["prompt"]
+        entity_names  = data.get("entity_names", [])
+        size    = data.get("size", "1024x1024")
+        quality = data.get("quality", "low")
+
+        image_b64 = _generate_image(
+                prompt=prompt,
+                entity_names=entity_names,
+                entities=entities,
+                size=size,
+                quality=quality
+            )
+
+        # result is `image_b64` (string) after you’ve called the image API
+        img_cfg = StoryImage(
+            index   = page_idx,
+            prompt  = prompt,
+            size    = size,
+            quality = quality,
+            image_b64 = image_b64,
+        )
+
+        # ensure we have a slot for this page
+        if len(story.images) <= page_idx:
+            story.images.extend([None] * (page_idx + 1 - len(story.images)))
+        story.images[page_idx] = img_cfg
+
+        # nothing for extras now
+        return {}
+
+    elif tool == "generate_image":
+        prompt = data["prompt"]
+        entity_names = data.get("entity_names", [])
+
+        image_b64 = _generate_image(
+                prompt=prompt,
+                entity_names=entity_names,
+                entities=entities,
+            )
+        return {"image_b64": image_b64}
 
     else:
         # TODO: Respond with no tool

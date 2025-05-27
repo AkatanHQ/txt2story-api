@@ -53,6 +53,19 @@ def _tool_agent(
     """
     # ── 2. Build the system prompt with live story context ───────────────
     images_summary = _summarise_images(story.images)
+    target_page_count = (
+        story.settings.target_page_count
+        if story.settings and story.settings.target_page_count
+        else 5)
+    
+    target_page_count_instruction = f"- target_page_count: {target_page_count}"
+
+    tone_instruction = (
+        f"- tone: {story.settings.tone} \\n"
+        if story.settings and story.settings.tone
+        else ""
+    )
+
 
     SYSTEM_PROMPT = (
         "You are StoryGPT‑DECIDER.  **Always** reply with *at least one* OpenAI tool‑call.\n"
@@ -62,6 +75,7 @@ def _tool_agent(
         "### BOOTSTRAP RULE\n"
         "• If you choose `edit_story_prompt` and the story has no pages, entities, or images:\n"
         "– You MUST also include:\n"
+        "    • One `edit_all` call to create full page content for the story. \n"
         "    • One `update_entity` call for **each entity** that should appear in the story.\n"
         "    • One `edit_image_prompt` call for **each story page**, with the appropriate `index`.\n"
 
@@ -69,18 +83,30 @@ def _tool_agent(
         "• If the user intends to use tools, respond ONLY with tool calls (OpenAI tool format). No natural language.\n"
         "• You may return MULTIPLE tool calls in a single response.\n"
         "• Consider chat history, but prioritise the most recent message.\n\n"
+
         "### IMAGE RULES\n"
         "• Only generate images when clearly asked (e.g. 'generate image', 'create illustrations').\n"
         "• If user asks for 'image prompts' or visual descriptions, use `edit_image_prompt`, NOT `generate_image`.\n"
         "• Prefer `generate_image_for_index` over `generate_image` when the target is a specific page.\n\n"
+
         "### STORY CONTEXT\n"
         f"• Prompt: {story.prompt}\n"
         "• Story Settings:\n"
-        f"   – tone: {story.settings.tone if story.settings and story.settings.tone else '–'}\n"
-        f"   – target_page_count: {story.settings.target_page_count if story.settings and story.settings.target_page_count else '–'}\n"
+        f"   {tone_instruction}"
+        f"   {target_page_count_instruction}"
         f"• Story: {story.pages}\n"
         f"• Entities ({len(entities)}): {', '.join(e.name for e in entities) or '–'}\n"
         f"• Image Prompts ({sum(1 for i in story.images if i)}):\n{images_summary}\n\n"
+
+        "### TEXT FORMAT RULES (applies to `edit_all`, `edit_text`, `insert_page`, etc.)\\n"
+        "• Use a descriptive narrative style (not poetry, not dialogue-only).\\n"
+        "• Keep each page to 1–2 short sentences or one concise paragraph. Unless stated otherwise\\n"
+        "• Text should flow logically and naturally from previous pages (if any).\\n"
+        "• Integrate the story prompt and listed entities where appropriate.\\n"
+        "• Avoid formatting artifacts:\\n"
+        "  – Do NOT include labels like \\\"Page 1:\\\"\\n"
+        "  – Do NOT use markdown, quotes, or code blocks\\n"
+
         "### TOOLS\n"
         "• edit_story_prompt – Replace the overall story prompt.\n\n"
         "• edit_target_page_count – Set how many pages the story should have (integer)\n"
@@ -96,10 +122,12 @@ def _tool_agent(
         "• edit_image_prompt – Modify image metadata (prompt, size, quality). Does NOT regenerate.\n"
         "• generate_image_for_index – Generate image for a specific story page.\n"
         "• generate_image – General‑purpose image (e.g. character portrait, cover art).\n\n"
+
         "### ENTITY IMAGE LOGIC\n"
         "• Entities may have:\n"
         "  – Just a prompt → fully describes the entity.\n"
         "  – An image + prompt → prompt describes modifications or extra details.\n\n"
+
         "### EXAMPLE\n"
         "User: Create two characters and write a story about them.\n"
         "Tool calls:\n"
