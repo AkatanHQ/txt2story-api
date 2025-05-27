@@ -49,6 +49,8 @@ def _intent_agent(
 
         "### TOOLS\n"
         "• edit_story_prompt – Replace the overall story prompt.\n\n"
+        "• edit_target_page_count – Set how many pages the story should have (integer)\n"
+        "• edit_story_tone – Change the overall tone (string, e.g. 'spooky')\n"
 
         "• edit_text – Replace a specific page.\n"
         "• edit_all – Replace all pages.\n"

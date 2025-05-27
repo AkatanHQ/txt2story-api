@@ -8,6 +8,9 @@ from enum import Enum
 class Mode(str, Enum):
     CONTINUE_CHAT = "continue_chat"
 
+    EDIT_TARGET_PAGE_COUNT = "edit_target_page_count"
+    EDIT_STORY_TONE       = "edit_story_tone"
+    
     EDIT_STORY_PROMPT = "edit_story_prompt"
     NO_TOOL                = "no_tool"
     EDIT_STORY_SETTINGS    = "edit_story_settings" 
@@ -31,8 +34,8 @@ class Mode(str, Enum):
 
 class StorySettings(BaseModel):
     """Optional high-level configuration for the whole story."""
-    tone:  Optional[str] = None   # e.g. "silly", "spooky"
-    pages: Optional[int] = None   # target number of pages
+    tone: Optional[str] = None            # e.g. "silly", "spooky"
+    target_page_count: Optional[int] = None  # desired number of pages
 
 class StoryImage(BaseModel):
     index: int

@@ -4,6 +4,48 @@ from typing import Dict, List, Optional, Tuple
 # ░░ OpenAI tool definitions ░░
 # ────────────────────────────
 TOOLS: List[Dict] = [
+    {  # ─── Story Settings ────────────────────────────────────────────
+      "type": "function",
+      "function": {
+          "name": "edit_target_page_count",
+          "description": "Update the desired number of story pages.",
+          "parameters": {
+              "type": "object",
+              "properties": {
+                  "target_page_count": {
+                      "type": "integer",
+                      "description": "Desired number of pages to generate"
+                  }
+              },
+              "required": ["target_page_count"]
+          }
+      }
+    },
+    { 
+      "type": "function",
+      "function": {
+          "name": "edit_story_tone",
+          "description": "Update the overall narrative tone (e.g. 'spooky').",
+          "parameters": {
+              "type": "object",
+              "properties": {
+                  "tone": {
+                      "type": "string",
+                      "description": "Narrative tone, e.g. 'silly', 'spooky'"
+                  }
+              },
+              "required": ["tone"]
+          }
+      }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "no_tool",
+            "description": "Indicate that no state-changing tool action is required for this turn.",
+            "parameters": { "type": "object", "properties": {}, "required": [] }
+        }
+    },
     {
         "type": "function",
         "function": {

@@ -1,6 +1,7 @@
 from app.features.story_chat.core.utils import (_parse_json_or_lines, _clean_json_fence, _normalize_indexes, _find_entity, _summarise_images)
 from .schemas import (
     Story,
+    StorySettings,
     StoryText,
     StoryEntity,
     ChatRequest,
@@ -157,11 +158,15 @@ def _apply_action(
         pages = _generate_story_pages(new_prompt, entities=entities)
         story.pages = [StoryText(index=i, text=p) for i, p in enumerate(pages)]
 
-    elif action == "edit_story_settings":
+    elif action == "edit_target_page_count":
         if story.settings is None:
             story.settings = StorySettings()
-        if "tone"  in data: story.settings.tone  = data["tone"]
-        if "pages" in data: story.settings.pages = data["pages"]
+        story.settings.target_page_count = data["target_page_count"]
+
+    elif action == "edit_story_tone":
+        if story.settings is None:
+            story.settings = StorySettings()
+        story.settings.tone = data["tone"]
 
     elif action == "no_tool":
         # deliberate no-op
