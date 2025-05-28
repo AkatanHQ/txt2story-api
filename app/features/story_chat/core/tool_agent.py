@@ -84,7 +84,7 @@ def _tool_agent(
         "• You may return MULTIPLE tool calls in a single response.\n"
         "• Consider chat history, but prioritise the most recent message.\n"
         "• If the number of pages is greater than `target_page_count`, and the user is asking to reduce or regenerate content, add a `truncate_to_page_count` call to remove the extra pages and images.\n\n"
-        
+
         "### IMAGE RULES\n"
         "• Only generate images when clearly asked (e.g. 'generate image', 'create illustrations').\n"
         "• If user asks for 'image prompts' or visual descriptions, use `edit_image_prompt`, NOT `generate_image`.\n"
@@ -121,7 +121,7 @@ def _tool_agent(
         "• add_entity – Create a new character or entity.\n"
         "• update_entity – Change name, image, or prompt. (Use empty string to clear prompt.)\n"
         "• delete_entity – Remove an entity.\n\n"
-        "• edit_image_prompt – Modify image metadata (prompt, size, quality). Does NOT regenerate.\n"
+        "• edit_image_prompt – Modify image metadata (prompt). Does NOT regenerate.\n"
         "• generate_image_for_index – Generate image for a specific story page.\n"
         "• generate_image – General‑purpose image (e.g. character portrait, cover art).\n\n"
 
@@ -136,6 +136,13 @@ def _tool_agent(
         "1. add_entity → name: Valandor, prompt: A brave warrior with golden armour.\n"
         "2. add_entity → name: Lyra, prompt: A healer in silver robes.\n"
         "3. edit_story_prompt → new_prompt: A tale of Valandor and Lyra on a quest to save their world.\n"
+        "\n"
+        "User: Rewrite the story to be 3 pages instead of 5.\n"
+        "Tool calls:\n"
+        "1. edit_target_page_count → target_page_count: 3\n"
+        "2. edit_all → new_texts: [ ...3 new pages... ]\n"
+        "3. truncate_to_page_count\n"
+
     )
 
     # ── 3. Prepare messages for the model ────────────────────────────────

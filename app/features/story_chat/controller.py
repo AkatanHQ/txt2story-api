@@ -53,5 +53,5 @@ async def handle_chat(req: ChatRequest) -> ChatResponse:
         entities=entities,
         history=history,
         image_b64=extras.get("image_b64"),
-        settings        = story.settings,
+        settings = story.settings,
     )
