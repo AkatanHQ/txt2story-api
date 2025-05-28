@@ -46,6 +46,54 @@ TOOLS: List[Dict] = [
           }
       }
     },
+    # ─── Story metadata ────────────────────────────────────────────────────
+    {
+    "type": "function",
+    "function": {
+        "name": "edit_story_title",
+        "description": "Update the story’s title.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "title": { "type": "string", "description": "New title." }
+            },
+            "required": ["title"]
+        }
+    }
+    },
+    {
+    "type": "function",
+    "function": {
+        "name": "edit_story_genre",
+        "description": "Update the story’s genre (e.g. 'Fantasy').",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "genre": { "type": "string", "description": "New genre." }
+            },
+            "required": ["genre"]
+        }
+    }
+    },
+    {
+    "type": "function",
+    "function": {
+        "name": "edit_story_keywords",
+        "description": "Replace the list of keywords for the story.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "keywords": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Array of keywords."
+                }
+            },
+            "required": ["keywords"]
+        }
+    }
+    },
+
     {
     "type": "function",
     "function": {

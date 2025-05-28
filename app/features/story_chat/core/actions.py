@@ -121,6 +121,15 @@ def _apply_tool(
             story.settings = StorySettings()
         story.settings.tone = data["tone"]
 
+    elif tool == "edit_story_title":
+        story.title = data["title"]
+
+    elif tool == "edit_story_genre":
+        story.genre = data["genre"]
+
+    elif tool == "edit_story_keywords":
+        story.keywords = data["keywords"]
+
     elif tool == "no_tool":
         # deliberate no-op
         pass

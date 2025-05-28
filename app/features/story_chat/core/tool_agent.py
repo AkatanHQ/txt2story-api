@@ -71,10 +71,12 @@ def _tool_agent(
         "You are StoryGPT‑DECIDER.  **Always** reply with *at least one* OpenAI tool‑call.\n"
         "If the user is only chatting, emit the `no_tool` function.\n"
         "Never produce natural‑language output yourself.\n\n"
+        "Use the language of the user."
 
         "### BOOTSTRAP RULE\n"
         "• If you choose `edit_story_prompt` and the story has no pages, entities, or images:\n"
         "– You MUST also include:\n"
+        "    • One `edit_story_title` call to set an initial title.\n"
         "    • One `edit_all` call to create full page content for the story. \n"
         "    • One `update_entity` call for **each entity** that should appear in the story.\n"
         "    • One `edit_image_prompt` call for **each story page**, with the appropriate `index`.\n"
@@ -92,12 +94,17 @@ def _tool_agent(
 
         "### STORY CONTEXT\n"
         f"• Prompt: {story.prompt}\n"
+        f"• Title: {story.title or '–'}\n"
+        f"• Genre: {story.genre or '–'}\n"
+        f"• Keywords: {', '.join(story.keywords) if story.keywords else '–'}\n"
         "• Story Settings:\n"
         f"   {tone_instruction}"
         f"   {target_page_count_instruction}"
         f"• Story: {story.pages}\n"
         f"• Entities ({len(entities)}): {', '.join(e.name for e in entities) or '–'}\n"
         f"• Image Prompts ({sum(1 for i in story.images if i)}):\n{images_summary}\n\n"
+
+
 
         "### TEXT FORMAT RULES (applies to `edit_all`, `edit_text`, `insert_page`, etc.)\\n"
         "• Use a descriptive narrative style (not poetry, not dialogue-only).\\n"
@@ -110,6 +117,9 @@ def _tool_agent(
 
         "### TOOLS\n"
         "• edit_story_prompt – Replace the overall story prompt.\n\n"
+        "• edit_story_title – Update the story’s title.\n"
+        "• edit_story_genre – Update the genre (e.g. 'Fantasy').\n"
+        "• edit_story_keywords – Replace the list of keywords (array of strings).\n\n"
         "• edit_target_page_count – Set how many pages the story should have (integer)\n"
         "• truncate_to_page_count – Trim the story’s pages and images to match the current `target_page_count`.\n"
         "• edit_story_tone – Change the overall tone (string, e.g. 'spooky')\n\n"
@@ -173,9 +183,6 @@ def _tool_agent(
         else:
             tool_calls = [("no_tool", {})]
             called_tool_names.append("no_tool")
-
-        # Persist the tool log (one message per assistant turn)
-        # history.append({"role": "tool", "content": json.dumps(called_tool_names)})
 
         return tool_calls
 

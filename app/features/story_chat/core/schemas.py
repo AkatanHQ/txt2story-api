@@ -6,13 +6,17 @@ from enum import Enum
 # ░░ Data models ░░
 # ────────────────────────────
 class Mode(str, Enum):
+    NO_TOOL                = "no_tool"
+    
     EDIT_TARGET_PAGE_COUNT = "edit_target_page_count"
     TRUNCATE_TO_PAGE_COUNT = "truncate_to_page_count"
     EDIT_STORY_TONE       = "edit_story_tone"
     
     EDIT_STORY_PROMPT = "edit_story_prompt"
-    NO_TOOL                = "no_tool"
-    EDIT_STORY_SETTINGS    = "edit_story_settings" 
+    EDIT_STORY_SETTINGS    = "edit_story_settings"
+    EDIT_STORY_TITLE    = "edit_story_title"
+    EDIT_STORY_GENRE    = "edit_story_genre"
+    EDIT_STORY_KEYWORDS = "edit_story_keywords"
 
     EDIT_TEXT = "edit_text"
     EDIT_ALL = "edit_all"
@@ -60,6 +64,10 @@ class Story(BaseModel):
     pages: List[StoryText] = Field(default_factory=list)
     images: List[StoryImage] = Field(default_factory=list)
     settings: Optional[StorySettings] = None
+
+    title: str = Field(default="")                 # Book title
+    genre: Optional[str] = None                    # e.g. "Fantasy"
+    keywords: Optional[List[str]] = None           # ["dragons", "friendship"]
 
 class ChatRequest(BaseModel):
     """Frontend payload.
