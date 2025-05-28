@@ -16,13 +16,10 @@ async def handle_chat(req: ChatRequest) -> ChatResponse:
     entities: List[StoryEntity] = list(req.entities or [])
     history_with_tools: List[dict] = list(req.history or [])
     user_msg = req.user_input
-    print("received input: ", user_msg)
-    print("story", story)
     history = history_for_api(history_with_tools)
 
     # ── 1. Add the latest user turn ───────────────────────────────────────
     history.append({"role": "user", "content": user_msg})
-    print("history 2", history)
 
     try:
         tool_calls = _tool_agent(story, entities, history)
@@ -32,7 +29,6 @@ async def handle_chat(req: ChatRequest) -> ChatResponse:
 
     executed_tools: List[Mode] = []
     extras = {}
-    print("history 3", history)
 
     story_before = Story(**story.model_dump())
 

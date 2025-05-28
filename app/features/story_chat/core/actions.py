@@ -110,6 +110,11 @@ def _apply_tool(
         if story.settings is None:
             story.settings = StorySettings()
         story.settings.target_page_count = data["target_page_count"]
+    elif tool == "truncate_to_page_count":
+        target = story.settings.target_page_count or len(story.pages)
+        story.pages = story.pages[:target]
+        story.images = story.images[:target]
+        _normalize_indexes(story)
 
     elif tool == "edit_story_tone":
         if story.settings is None:

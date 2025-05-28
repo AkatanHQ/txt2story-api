@@ -82,8 +82,9 @@ def _tool_agent(
         "### DECISION FLOW\n"
         "• If the user intends to use tools, respond ONLY with tool calls (OpenAI tool format). No natural language.\n"
         "• You may return MULTIPLE tool calls in a single response.\n"
-        "• Consider chat history, but prioritise the most recent message.\n\n"
-
+        "• Consider chat history, but prioritise the most recent message.\n"
+        "• If the number of pages is greater than `target_page_count`, and the user is asking to reduce or regenerate content, add a `truncate_to_page_count` call to remove the extra pages and images.\n\n"
+        
         "### IMAGE RULES\n"
         "• Only generate images when clearly asked (e.g. 'generate image', 'create illustrations').\n"
         "• If user asks for 'image prompts' or visual descriptions, use `edit_image_prompt`, NOT `generate_image`.\n"
@@ -110,6 +111,7 @@ def _tool_agent(
         "### TOOLS\n"
         "• edit_story_prompt – Replace the overall story prompt.\n\n"
         "• edit_target_page_count – Set how many pages the story should have (integer)\n"
+        "• truncate_to_page_count – Trim the story’s pages and images to match the current `target_page_count`.\n"
         "• edit_story_tone – Change the overall tone (string, e.g. 'spooky')\n\n"
         "• edit_text – Replace a specific page.\n"
         "• edit_all – Replace all pages.\n"

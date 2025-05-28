@@ -7,6 +7,7 @@ from enum import Enum
 # ────────────────────────────
 class Mode(str, Enum):
     EDIT_TARGET_PAGE_COUNT = "edit_target_page_count"
+    TRUNCATE_TO_PAGE_COUNT = "truncate_to_page_count"
     EDIT_STORY_TONE       = "edit_story_tone"
     
     EDIT_STORY_PROMPT = "edit_story_prompt"

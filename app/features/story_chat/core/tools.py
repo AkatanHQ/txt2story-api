@@ -47,6 +47,19 @@ TOOLS: List[Dict] = [
       }
     },
     {
+    "type": "function",
+    "function": {
+        "name": "truncate_to_page_count",
+        "description": "Trim story pages and images to match the target page count.",
+        "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+        }
+    }
+    },
+
+    {
         "type": "function",
         "function": {
             "name": "edit_image_prompt",
@@ -59,8 +72,8 @@ TOOLS: List[Dict] = [
                 "properties": {
                     "index":    { "type": "integer", "description": "Page index of the image." },
                     "prompt":  { "type": "string",  "description": "New prompt to store."},
-                    "size":    { "type": "string",  "description": "New size, e.g. 1024x1024."},
-                    "quality": { "type": "string",  "description": "low / medium / high."}
+                    # "size":    { "type": "string",  "description": "New size, e.g. 1024x1024."},
+                    # "quality": { "type": "string",  "description": "low / medium / high."}
                 },
                 "required": ["index"]
             }
