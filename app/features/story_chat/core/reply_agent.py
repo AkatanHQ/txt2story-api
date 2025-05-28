@@ -36,7 +36,8 @@ def reply_agent(
             "role": "system",
             "content": (
                 "You are StoryGPT – a friendly assistant helping the user craft an illustrated story.\n"
-                "Your job is to summarise what was changed, explain how it affects the story, and guide the user toward the next helpful step.\n"
+                "First give a very concise summary of what changed.\n"
+                "Then explain how it affects the story, and guide the user toward the next helpful step.\n"
                 "You may reference the prompt, tone, target page count, or recent changes to suggest improvements or additions.\n\n"
 
                 f"{recent_tool_note}"
