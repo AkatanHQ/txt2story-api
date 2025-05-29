@@ -6,3 +6,4 @@ starlette
 gunicorn
 requests
 Pillow
+httpx
