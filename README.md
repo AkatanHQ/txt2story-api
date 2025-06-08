@@ -1,5 +1,6 @@
 # AI Story Book: The Txt2Story API
-
+> ⚠️ **Note**: This is the **old Txt2Story Api** of [AIStorybook.app](https://AIStorybook.app).  
+> The project has since evolved — visit the live site for the latest version.
 The **AI Story Book** project automatically generates personalized storybooks, complete with AI-generated text and images. This repository contains the backend APIs written in Python (FastAPI) that power [AIStorybook.app](https://AIStorybook.app).
 
 ---
